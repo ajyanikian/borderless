@@ -3,6 +3,6 @@
   "name": "borderless",
   "compatibility_date": "2026-11-06",
   "assets": {
-    "directory": "./"
+    "directory": "./borderless-site"
   }
 }
