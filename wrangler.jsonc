@@ -1,8 +1,11 @@
 
 {
   "name": "borderless",
+  "main": "worker.js",
   "compatibility_date": "2026-11-06",
   "assets": {
-    "directory": "./borderless-site"
+    "directory": "./borderless-site",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
   }
 }
