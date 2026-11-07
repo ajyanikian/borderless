@@ -3,6 +3,7 @@
   "name": "borderless",
   "main": "worker.js",
   "compatibility_date": "2026-11-06",
+  "keep_vars": true,
   "assets": {
     "directory": "./borderless-site",
     "binding": "ASSETS",
