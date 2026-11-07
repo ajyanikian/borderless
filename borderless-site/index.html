@@ -168,9 +168,66 @@ const PHOTOS = [
   ["oil-proceeds.jpg","Two tins"],["oil-stack.jpg","Two tins stacked"],["oil-cap.jpg","Pour cap"],["oil-seal.jpg","Circular text on the tin"]
 ];
 /* ─────────────────────────────────────────────────────────── */
-const buy=document.getElementById("buy");
-if(BUY_LINK){buy.href=BUY_LINK;buy.target="_blank";buy.rel="noopener";}
-else{buy.classList.add("soon");buy.removeAttribute("href");buy.title="Checkout coming soon";}
+
+const buy = document.getElementById("buy");
+const testCheckout = new URLSearchParams(location.search)
+  .get("test_checkout") === "1";
+
+if (testCheckout) {
+  buy.textContent = "Buy now (test)";
+  buy.href = "#shop";
+  document.getElementById("qty").max = "3";
+
+  buy.addEventListener("click", async (event) => {
+    event.preventDefault();
+
+    if (buy.dataset.loading === "1") return;
+
+    const quantity = Number(
+      document.getElementById("qty").value
+    );
+
+    if (!Number.isInteger(quantity) ||
+        quantity < 1 || quantity > 3) {
+      alert("Please select 1, 2, or 3 cans.");
+      return;
+    }
+
+    buy.dataset.loading = "1";
+    buy.textContent = "Opening checkout...";
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ quantity })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.url) {
+        throw new Error(
+          data.error || "Unable to start checkout."
+        );
+      }
+
+      window.location.assign(data.url);
+
+    } catch (error) {
+      alert(error.message);
+      buy.dataset.loading = "0";
+      buy.textContent = "Buy now (test)";
+    }
+  });
+
+} else {
+  buy.classList.add("soon");
+  buy.removeAttribute("href");
+  buy.title = "Checkout coming soon";
+}
+
 let cur=0; const main=document.getElementById("mainImg"), th=document.getElementById("thumbs");
 th.innerHTML=PHOTOS.map(([s,a],i)=>`<button type="button" aria-label="${a}" aria-current="${i===0}"><img src="${s}" alt="" loading="lazy"></button>`).join("");
 const show=i=>{cur=(i+PHOTOS.length)%PHOTOS.length;main.src=PHOTOS[cur][0];main.alt=PHOTOS[cur][1];th.querySelectorAll("button").forEach((b,k)=>b.setAttribute("aria-current",k===cur));};
