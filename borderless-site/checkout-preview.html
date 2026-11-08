@@ -1,0 +1,77 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Borderless | Checkout Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 560px;
+      margin: 80px auto;
+      padding: 24px;
+      color: #1515F5;
+    }
+
+    button {
+      background: #1515F5;
+      color: white;
+      border: 0;
+      padding: 14px 24px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+    }
+
+    #result {
+      margin-top: 24px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>borderless</h1>
+  <h2>Checkout connection test</h2>
+
+  <p>Verify that Cloudflare can create a Stripe test checkout session.</p>
+
+  <button id="test">Test Stripe Connection</button>
+  <p id="result" role="status"></p>
+
+  <script>
+    const button = document.getElementById("test");
+    const result = document.getElementById("result");
+
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      result.textContent = "Connecting to Stripe...";
+
+      try {
+        const response = await fetch(
+          "/api/checkout-form-session",
+          { method: "POST" }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.clientSecret) {
+          throw new Error(
+            `Checkout initialization failed (HTTP ${response.status})`
+          );
+        }
+
+        result.textContent =
+          "Success! Stripe test checkout session created.";
+
+      } catch (error) {
+        result.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
