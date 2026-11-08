@@ -1,4 +1,6 @@
 
+import { getShippingRates } from "./shipping.js";
+
 const SHIPPING_RATES = {
   1: 895,
   2: 1195,
@@ -61,6 +63,52 @@ async function verifyStripeSignature(body, header, secret) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Development-only Shippo shipping quote test
+    // Remove before merging into production
+    if (url.pathname === "/api/shippo-rate-test") {
+      if (!env.SHIPPO_API_TOKEN?.startsWith("shippo_test_")) {
+        return new Response("Test mode required", {
+          status: 403
+        });
+      }
+
+      try {
+        const shipFrom = JSON.parse(
+          env.SHIP_FROM_ADDRESS_JSON || "null"
+        );
+
+        const result = await getShippingRates({
+          token: env.SHIPPO_API_TOKEN,
+          shipFrom,
+          shipTo: {
+            name: "Borderless Test",
+            street1: "350 7th Ave",
+            city: "New York",
+            state: "NY",
+            zip: "10001",
+            country: "US"
+          },
+          quantity: 1
+        });
+
+        return Response.json({
+          destination: "New York, 10001",
+          package: "1 can, 600 g",
+          cheapest: result.cheapest,
+          availableRates: result.rates
+        }, {
+          headers: { "Cache-Control": "no-store" }
+        });
+
+      } catch (error) {
+        console.error("Shippo rate test:", error);
+
+        return Response.json({
+          error: "Unable to calculate test shipping quote"
+        }, { status: 502 });
+      }
+    }
 
     
     // Test the connection to Shippo
