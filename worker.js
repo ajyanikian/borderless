@@ -1,4 +1,6 @@
 
+import { createCheckoutFormSession } from "./checkout-embedded.js";
+
 import { getShippingRates } from "./shipping.js";
 
 const SHIPPING_RATES = {
@@ -63,6 +65,41 @@ async function verifyStripeSignature(body, header, secret) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Create a Stripe Embedded Checkout test session
+    if (url.pathname === "/api/checkout-form-session") {
+      if (request.method !== "POST") {
+        return new Response("Method not allowed", {
+          status: 405
+        });
+      }
+
+      try {
+        const session = await createCheckoutFormSession(
+          env,
+          url.origin
+        );
+
+        return Response.json(
+          { clientSecret: session.clientSecret },
+          {
+            headers: {
+              "Cache-Control": "no-store"
+            }
+          }
+        );
+      } catch (error) {
+        console.error(
+          "Checkout form initialization failed",
+          error.message
+        );
+
+        return Response.json(
+          { error: "Unable to initialize checkout" },
+          { status: 502 }
+        );
+      }
+    }
 
     // Development-only Shippo shipping quote test
     // Remove before merging into production
