@@ -100,9 +100,9 @@ export async function getShippingRates({
     }
   );
 
-  if (!response.ok) {
-    throw new Error("Unable to retrieve shipping rates");
-  }
+if (!response.ok) {
+  throw new Error(`SHIPPO_HTTP_${response.status}`);
+}
 
   const shipment = await response.json();
 
