@@ -54,8 +54,6 @@ export async function createCheckoutFormSession(env, origin) {
     "0"
   );
 
-  // Limit initial test to card payments.
-  params.set("payment_method_types[0]", "card");
 
   const returnUrl = new URL(
     "/?checkout=return#shop",
