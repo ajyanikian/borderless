@@ -62,6 +62,40 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    
+    // Test the connection to Shippo
+    if (url.pathname === "/api/shippo-check") {
+      if (!env.SHIPPO_API_TOKEN) {
+        return Response.json(
+          { shippo: "token_missing" },
+          { status: 503 }
+        );
+      }
+
+      try {
+        const response = await fetch(
+          "https://api.goshippo.com/carrier_accounts/",
+          {
+            headers: {
+              Authorization: `ShippoToken ${env.SHIPPO_API_TOKEN}`,
+              "SHIPPO-API-VERSION": "2018-02-08"
+            }
+          }
+        );
+
+        return Response.json({
+          shippo: response.ok ? "connected" : "error",
+          api_status: response.status
+        });
+
+      } catch {
+        return Response.json(
+          { shippo: "connection_failed" },
+          { status: 502 }
+        );
+      }
+    }
+
     // Receive Stripe payment notifications
     if (url.pathname === "/api/stripe-webhook") {
       if (request.method !== "POST") {
