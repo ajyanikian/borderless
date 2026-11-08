@@ -101,13 +101,30 @@ export default {
           headers: { "Cache-Control": "no-store" }
         });
 
-      } catch (error) {
-        console.error("Shippo rate test:", error);
 
-        return Response.json({
-          error: "Unable to calculate test shipping quote"
-        }, { status: 502 });
-      }
+} catch (error) {
+  console.error("Shippo rate test:", error);
+
+  const message = String(error?.message || "");
+
+  let reason = "UNKNOWN_ERROR";
+
+  if (/^SHIPPO_HTTP_\d{3}$/.test(message)) {
+    reason = message;
+  } else if (message === "No shipping rates available") {
+    reason = "NO_AVAILABLE_RATES";
+  } else if (message.startsWith("Missing address field:")) {
+    reason = "ADDRESS_INCOMPLETE";
+  } else if (error instanceof SyntaxError) {
+    reason = "INVALID_SENDER_JSON";
+  }
+
+  return Response.json({
+    error: "Unable to calculate test shipping quote",
+    reason
+  }, { status: 502 });
+}
+
     }
 
     
