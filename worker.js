@@ -88,17 +88,28 @@ export default {
             }
           }
         );
-      } catch (error) {
-        console.error(
-          "Checkout form initialization failed",
-          error.message
-        );
 
-        return Response.json(
-          { error: "Unable to initialize checkout" },
-          { status: 502 }
-        );
-      }
+} catch (error) {
+  const message = String(error?.message || "");
+
+  let reason = "SERVER_ERROR";
+
+  if (message === "Stripe test key required") {
+    reason = "STRIPE_TEST_KEY_REQUIRED";
+  } else if (message === "Stripe test price not configured") {
+    reason = "STRIPE_PRICE_NOT_CONFIGURED";
+  } else if (message === "Unable to create test checkout session") {
+    reason = "STRIPE_REQUEST_FAILED";
+  }
+
+  console.error("Checkout initialization:", reason);
+
+  return Response.json({
+    error: "Unable to initialize checkout",
+    reason
+  }, { status: 502 });
+}
+
     }
 
     // Development-only Shippo shipping quote test
