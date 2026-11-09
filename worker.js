@@ -104,10 +104,15 @@ export default {
 
   console.error("Checkout initialization:", reason);
 
-  return Response.json({
-    error: "Unable to initialize checkout",
-    reason
-  }, { status: 502 });
+
+return Response.json({
+  error: "Unable to initialize checkout",
+  reason,
+  stripeStatus: error.stripeStatus || null,
+  stripeCode: error.stripeCode || null,
+  stripeParam: error.stripeParam || null
+}, { status: 502 });
+
 }
 
     }
