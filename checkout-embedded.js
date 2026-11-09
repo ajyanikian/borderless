@@ -76,15 +76,19 @@ export async function createCheckoutFormSession(env, origin) {
 
   const session = await response.json().catch(() => null);
 
-  if (!response.ok || !session?.client_secret) {
-    console.error(
-      "Stripe session creation failed",
-      response.status,
-      session?.error?.code || "UNKNOWN"
-    );
 
-    throw new Error("Unable to create test checkout session");
-  }
+if (!response.ok || !session?.client_secret) {
+  const error = new Error(
+    "Unable to create test checkout session"
+  );
+
+  error.stripeStatus = response.status;
+  error.stripeCode = session?.error?.code || "UNKNOWN";
+  error.stripeParam = session?.error?.param || "none";
+
+  throw error;
+}
+
 
   return {
     clientSecret: session.client_secret,
