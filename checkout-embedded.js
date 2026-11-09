@@ -24,6 +24,11 @@ export async function createCheckoutFormSession(env, origin) {
   params.set("mode", "payment");
   params.set("ui_mode", "form");
 
+params.set(
+  "metadata[checkout_flow]",
+  "borderless_shippo_preview"
+);
+
   // Only one can until other package profiles are verified.
   params.set("line_items[0][price]", env.STRIPE_PRICE_ID);
   params.set("line_items[0][quantity]", "1");
