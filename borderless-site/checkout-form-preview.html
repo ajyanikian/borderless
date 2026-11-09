@@ -1,0 +1,127 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Borderless | Checkout Preview</title>
+  <script src="https://js.stripe.com/endive/stripe.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 620px;
+      margin: 60px auto;
+      padding: 24px;
+      color: #222;
+    }
+    h1 { font-size: 28px; }
+    #status {
+      margin: 24px 0;
+      font-size: 14px;
+    }
+    #checkout-form { margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <h1>borderless</h1>
+  <p>Palestinian Olive Oil | 500 ml | $45</p>
+  <p><strong>TEST MODE ONLY</strong></p>
+
+  <div id="status" role="status">Initializing checkout...</div>
+  <div id="checkout-form"></div>
+
+  <script>
+    const stripe = Stripe("pk_test_51UZ16NE7oxC51pBqmNAXrH7ZLjgzATYEo4RUFtn6EAQFMoF4ZGYR6H1nv8hZqyAmJ44a9vYYn2tw34E7VjhQe4rn00K3IOhTzi");
+    const statusElement = document.getElementById("status");
+
+    function setStatus(message) {
+      statusElement.textContent = message;
+    }
+
+    async function updateShipping(sessionId, shippingDetails) {
+      const response = await fetch("/api/checkout-shipping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          checkout_session_id: sessionId,
+          shipping_details: shippingDetails
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.type !== "object") {
+        throw new Error(
+          result.message || "Unable to calculate shipping"
+        );
+      }
+
+      return result;
+    }
+
+    async function initialize() {
+      try {
+        const response = await fetch(
+          "/api/checkout-form-session",
+          { method: "POST" }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.clientSecret) {
+          throw new Error("Session creation failed");
+        }
+
+        const checkout = await stripe.initCheckoutFormSdk({
+          clientSecret: data.clientSecret
+        });
+
+        const form = checkout.createForm();
+        form.mount("#checkout-form");
+
+        setStatus("Enter your shipping address to calculate postage.");
+
+        let hasQuoted = false;
+
+        form.on("change", async ({ value, status }) => {
+          if (!status.shippingAddress?.complete) {
+            hasQuoted = false;
+            return;
+          }
+
+          if (hasQuoted) return;
+
+          hasQuoted = true;
+          setStatus("Calculating shipping through Shippo...");
+
+          try {
+            const loaded = await checkout.loadActions();
+
+            if (loaded.type !== "success") {
+              throw new Error("Could not load checkout actions");
+            }
+
+            await loaded.actions.runServerUpdate(() =>
+              updateShipping(
+                loaded.actions.getSession().id,
+                value.shippingAddress
+              )
+            );
+
+            setStatus("Shipping quote updated. Check the total.");
+
+          } catch (error) {
+            hasQuoted = false;
+            setStatus("Shipping error: " + error.message);
+          }
+        });
+
+      } catch (error) {
+        setStatus("Checkout error: " + error.message);
+      }
+    }
+
+    initialize();
+  </script>
+</body>
+</html>
