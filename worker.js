@@ -1,4 +1,6 @@
 
+import { updateCheckoutShipping } from "./checkout-shipping.js";
+
 import { createCheckoutFormSession } from "./checkout-embedded.js";
 
 import { getShippingRates } from "./shipping.js";
@@ -67,6 +69,53 @@ export default {
     const url = new URL(request.url);
 
     // Create a Stripe Embedded Checkout test session
+    
+if (url.pathname === "/api/checkout-shipping") {
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", {
+      status: 405
+    });
+  }
+
+  try {
+    const data = await request.json();
+
+    if (
+      typeof data?.checkout_session_id !== "string" ||
+      !data?.shipping_details
+    ) {
+      return Response.json({
+        type: "error",
+        message: "Missing checkout or shipping details"
+      }, { status: 400 });
+    }
+
+    const result = await updateCheckoutShipping({
+      env,
+      sessionId: data.checkout_session_id,
+      shippingDetails: data.shipping_details
+    });
+
+    return Response.json({
+      type: "object",
+      value: result
+    }, {
+      headers: { "Cache-Control": "no-store" }
+    });
+
+  } catch (error) {
+    console.error(
+      "Checkout shipping update failed:",
+      error?.message || "UNKNOWN"
+    );
+
+    return Response.json({
+      type: "error",
+      message: "Shipping is unavailable. Please try again."
+    }, { status: 422 });
+  }
+}
+
     if (url.pathname === "/api/checkout-form-session") {
       if (request.method !== "POST") {
         return new Response("Method not allowed", {
