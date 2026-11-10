@@ -83,38 +83,88 @@
 
         let hasQuoted = false;
 
-        form.on("change", async ({ value, status }) => {
-          if (!status.shippingAddress?.complete) {
-            hasQuoted = false;
-            return;
-          }
+let latestAddress = null;
+let latestKey = "";
+let lastQuotedKey = "";
+let quoteInProgress = false;
 
-          if (hasQuoted) return;
+async function refreshShipping() {
+  if (quoteInProgress) return;
 
-          hasQuoted = true;
-          setStatus("Calculating shipping through Shippo...");
+  quoteInProgress = true;
 
-          try {
-            const loaded = await checkout.loadActions();
+  try {
+    while (latestAddress && latestKey !== lastQuotedKey) {
+      const addressKey = latestKey;
+      const shippingDetails = latestAddress;
 
-            if (loaded.type !== "success") {
-              throw new Error("Could not load checkout actions");
-            }
+      setStatus("Calculating shipping through Shippo...");
 
-            await loaded.actions.runServerUpdate(() =>
-              updateShipping(
-                loaded.actions.getSession().id,
-                value.shippingAddress
-              )
-            );
+      try {
+        const loaded = await checkout.loadActions();
 
-            setStatus("Shipping quote updated. Check the total.");
+        if (loaded.type !== "success") {
+          throw new Error("Could not load checkout actions");
+        }
 
-          } catch (error) {
-            hasQuoted = false;
-            setStatus("Shipping error: " + error.message);
-          }
-        });
+        const result = await loaded.actions.runServerUpdate(
+          () => updateShipping(
+            loaded.actions.getSession().id,
+            shippingDetails
+          )
+        );
+
+        if (result.type !== "success") {
+          throw new Error("Could not refresh shipping total");
+        }
+
+        lastQuotedKey = addressKey;
+
+        if (addressKey === latestKey) {
+          setStatus("Shipping quote updated. Check the total.");
+        }
+
+      } catch (error) {
+        if (addressKey === latestKey) {
+          setStatus("Shipping error: " + error.message);
+        }
+        break;
+      }
+    }
+  } finally {
+    quoteInProgress = false;
+  }
+}
+
+form.on("change", ({ value, status }) => {
+  const details = value?.shippingAddress;
+
+  if (!status.shippingAddress?.complete || !details?.address) {
+    latestAddress = null;
+    latestKey = "";
+    lastQuotedKey = "";
+    setStatus("Enter your shipping address to calculate postage.");
+    return;
+  }
+
+  const address = details.address;
+
+  const addressKey = JSON.stringify([
+    details.name || "",
+    address.line1 || "",
+    address.line2 || "",
+    address.city || "",
+    address.state || "",
+    address.postal_code || "",
+    address.country || ""
+  ]);
+
+  latestAddress = details;
+  latestKey = addressKey;
+
+  void refreshShipping();
+});
+
 
       } catch (error) {
         setStatus("Checkout error: " + error.message);
