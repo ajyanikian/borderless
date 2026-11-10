@@ -61,12 +61,12 @@ export async function updateCheckoutShipping({
   // Convert Stripe's address format to Shippo's.
   const address = shippingDetails?.address;
 
-  if (!address || !shippingDetails?.name) {
+  if (!address) {
     throw new Error("ADDRESS_INCOMPLETE");
   }
 
   const shipTo = {
-    name: shippingDetails.name,
+    name: shippingDetails.name?.trim() || "Rate Estimate",
     street1: address.line1,
     street2: address.line2 || "",
     city: address.city,
