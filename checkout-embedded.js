@@ -22,6 +22,12 @@ export async function createCheckoutFormSession(env, origin) {
   const params = new URLSearchParams();
 
   params.set("mode", "payment");
+  
+params.set(
+  "payment_intent_data[capture_method]",
+  "manual"
+);
+
   params.set("ui_mode", "form");
 
 params.set(
