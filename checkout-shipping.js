@@ -1,6 +1,38 @@
 
 import { getShippingRates } from "./shipping.js";
 
+
+export async function fingerprintShippingAddress(address) {
+  const fields = [
+    "line1",
+    "line2",
+    "city",
+    "state",
+    "postal_code",
+    "country"
+  ];
+
+  const normalized = fields.map(field =>
+    String(address?.[field] ?? "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase()
+  );
+
+  const encoded = new TextEncoder().encode(
+    JSON.stringify(normalized)
+  );
+
+  const hash = await crypto.subtle.digest(
+    "SHA-256",
+    encoded
+  );
+
+  return Array.from(new Uint8Array(hash))
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 /*
  * Borderless Checkout Shipping
  *
@@ -104,6 +136,21 @@ export async function updateCheckoutShipping({
 
   // Replace the initial Stripe shipping option.
   const params = new URLSearchParams();
+
+params.set(
+  "metadata[shipping_quote_address_hash]",
+  await fingerprintShippingAddress(address)
+);
+
+params.set(
+  "metadata[shipping_quote_amount_cents]",
+  String(shippingAmount)
+);
+
+params.set(
+  "metadata[shipping_quote_rate_id]",
+  String(quote.cheapest.id)
+);
 
   params.set(
     "shipping_options[0][shipping_rate_data][type]",
