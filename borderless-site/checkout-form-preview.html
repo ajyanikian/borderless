@@ -81,8 +81,7 @@
 
         setStatus("Enter your shipping address to calculate postage.");
 
-        let hasQuoted = false;
-
+      
 let latestAddress = null;
 let latestKey = "";
 let lastQuotedKey = "";
@@ -164,6 +163,7 @@ form.on("change", ({ value, status }) => {
 
   void refreshShipping();
 });
+
 
 
       } catch (error) {
