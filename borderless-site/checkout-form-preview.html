@@ -171,6 +171,76 @@ form.on("change", ({ value }) => {
 });
 
 
+form.on("confirm", async (event) => {
+  try {
+    // Keep express wallets disabled during shipping validation.
+    if (event.source !== "checkout-form-pay-button") {
+      setStatus("Please use the regular payment form.");
+      return;
+    }
+
+    const current = await form.getValue();
+    const address = current.value?.shippingAddress?.address;
+
+    const currentKey = address && JSON.stringify([
+      address.line1 || "",
+      address.line2 || "",
+      address.city || "",
+      address.state || "",
+      address.postal_code || "",
+      address.country || ""
+    ]);
+
+    // Reject missing, outdated, or pending shipping quotes.
+    if (
+      !currentKey ||
+      quoteInProgress ||
+      currentKey !== latestKey ||
+      currentKey !== lastQuotedKey
+    ) {
+      setStatus(
+        "Please wait for shipping to finish calculating before paying."
+      );
+      return;
+    }
+
+    const loaded = await checkout.loadActions();
+
+    if (loaded.type !== "success") {
+      throw new Error("Unable to verify checkout.");
+    }
+
+    const shippingCents =
+      loaded.actions.getSession()?.total?.shippingRate
+        ?.minorUnitsAmount;
+
+    if (
+      !Number.isInteger(shippingCents) ||
+      shippingCents <= 0
+    ) {
+      setStatus(
+        "A valid shipping price is required before payment."
+      );
+      return;
+    }
+
+    setStatus("Confirming test payment...");
+
+    const result = await loaded.actions.confirm({
+      formConfirmEvent: event
+    });
+
+    if (result.type === "error") {
+      throw new Error(result.error.message);
+    }
+
+    setStatus("Test payment submitted successfully.");
+
+  } catch (error) {
+    setStatus("Checkout error: " + error.message);
+  }
+});
+
 
 
       } catch (error) {
