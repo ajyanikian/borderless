@@ -135,21 +135,27 @@ async function refreshShipping() {
   }
 }
 
-form.on("change", ({ value, status }) => {
-  const details = value?.shippingAddress;
 
-  if (!status.shippingAddress?.complete || !details?.address) {
+form.on("change", ({ value }) => {
+  const details = value?.shippingAddress;
+  const address = details?.address;
+
+  const addressReady =
+    address?.country?.toUpperCase() === "US" &&
+    Boolean(address?.line1?.trim()) &&
+    Boolean(address?.city?.trim()) &&
+    Boolean(address?.state?.trim()) &&
+    /^\d{5}(-\d{4})?$/.test(address?.postal_code || "");
+
+  if (!addressReady) {
     latestAddress = null;
     latestKey = "";
     lastQuotedKey = "";
-    setStatus("Enter your shipping address to calculate postage.");
+    setStatus("Enter your delivery address to calculate shipping.");
     return;
   }
 
-  const address = details.address;
-
   const addressKey = JSON.stringify([
-    details.name || "",
     address.line1 || "",
     address.line2 || "",
     address.city || "",
@@ -163,6 +169,7 @@ form.on("change", ({ value, status }) => {
 
   void refreshShipping();
 });
+
 
 
 
