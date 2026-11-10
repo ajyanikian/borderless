@@ -5,6 +5,9 @@ import { createCheckoutFormSession } from "./checkout-embedded.js";
 
 import { getShippingRates } from "./shipping.js";
 
+import { reviewStripeOrder } from "./stripe-order-review.js";
+
+
 const SHIPPING_RATES = {
   1: 895,
   2: 1195,
@@ -317,15 +320,35 @@ return Response.json({
             "checkout.session.async_payment_succeeded"
         );
 
-      if (paid) {
-        console.log(
-          "Verified paid Stripe checkout:",
-          session?.id,
-          event.id
-        );
-      }
 
-      return new Response("ok", { status: 200 });
+if (paid) {
+  console.log(
+    "Verified paid Stripe checkout:",
+    session?.id,
+    event.id
+  );
+}
+
+// Independently verify authorized Borderless orders.
+if (event.type === "checkout.session.completed") {
+  try {
+    const review = await reviewStripeOrder(env, event);
+
+    console.log(
+      "BORDERLESS_ORDER_REVIEW",
+      review.approved ? "APPROVED" : "REJECTED",
+      review.reason || "ALL_CHECKS_PASSED"
+    );
+  } catch (error) {
+    console.error(
+      "BORDERLESS_ORDER_REVIEW_ERROR",
+      error.message
+    );
+  }
+}
+
+return new Response("ok", { status: 200 });
+
     }
 
     // Backend health check
