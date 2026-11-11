@@ -29,7 +29,7 @@ export async function verifyAuthorizedOrder({
   if (
     session.status !== "complete" ||
     session.mode !== "payment" ||
-    paymentIntent.status !== "requires_capture" ||
+    !["requires_capture", "succeeded"].includes(paymentIntent.status) ||
     paymentIntent.capture_method !== "manual"
   ) {
     return reject("INVALID_PAYMENT_STATE");
@@ -104,14 +104,24 @@ export async function verifyAuthorizedOrder({
     session.amount_subtotal !== PRODUCT_PRICE_CENTS ||
     session.amount_total !== expectedTotal ||
     paymentIntent.amount !== expectedTotal ||
-    paymentIntent.amount_capturable !== expectedTotal
+    
+(
+  paymentIntent.status === "requires_capture"
+    ? paymentIntent.amount_capturable !== expectedTotal
+    : paymentIntent.amount_received !== expectedTotal ||
+      paymentIntent.amount_capturable !== 0
+)
+
   ) {
     return reject("AMOUNT_MISMATCH");
   }
 
-  return {
-    approved: true,
-    amountCents: expectedTotal,
-    paymentIntentId: paymentIntent.id
-  };
+  
+return {
+  approved: true,
+  alreadyCaptured: paymentIntent.status === "succeeded",
+  amountCents: expectedTotal,
+  paymentIntentId: paymentIntent.id
+};
+
 }
