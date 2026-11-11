@@ -11,7 +11,7 @@ export async function syncShippoOrder(env, paymentIntentId, checkoutSessionId) {
   // Atomic claim prevents competing webhook deliveries from duplicating orders.
   const claim = await env.ORDERS_DB.prepare(`
     UPDATE orders
-    SET shippo_sync_state = 'processing',
+    SET shippo_sync_state = 'creating',
         shippo_sync_started_at = datetime('now'),
         updated_at = datetime('now')
     WHERE payment_intent_id = ? AND checkout_session_id = ?
@@ -91,18 +91,18 @@ export async function syncShippoOrder(env, paymentIntentId, checkoutSessionId) {
       throw new Error(`SHIPPO_ORDER_${shippo.status}`);
     }
     await env.ORDERS_DB.prepare(`
-      UPDATE orders SET shippo_order_id = ?, shippo_sync_state = 'synced',
+      UPDATE orders SET shippo_order_id = ?, shippo_sync_state = 'created',
         last_error = NULL, updated_at = datetime('now')
-      WHERE payment_intent_id = ? AND shippo_sync_state = 'processing'
+      WHERE payment_intent_id = ? AND shippo_sync_state = 'creating'
     `).bind(result.object_id, paymentIntentId).run();
     console.log("BORDERLESS_SHIPPO_ORDER_CREATED", paymentIntentId, result.object_id);
     return { synced: true };
   } catch (error) {
     // Do not auto-retry: an uncertain network result can otherwise create duplicates.
     await env.ORDERS_DB.prepare(`
-      UPDATE orders SET shippo_sync_state = 'error', last_error = ?,
+      UPDATE orders SET shippo_sync_state = 'needs_review', last_error = ?,
         updated_at = datetime('now')
-      WHERE payment_intent_id = ? AND shippo_sync_state = 'processing'
+      WHERE payment_intent_id = ? AND shippo_sync_state = 'creating'
     `).bind(String(error.message).slice(0, 160), paymentIntentId).run();
     console.error("BORDERLESS_SHIPPO_SYNC_ERROR", paymentIntentId, error.message);
     return { synced: false };
