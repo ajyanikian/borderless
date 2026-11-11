@@ -73,6 +73,41 @@ async function verifyStripeSignature(body, header, secret) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    
+if (url.pathname === "/api/verify-shippo-order") {
+  if (request.method !== "GET") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
+  if (!env.SHIPPO_API_TOKEN?.startsWith("shippo_test_")) {
+    return Response.json({ error: "Test token required" }, { status: 403 });
+  }
+
+  const orderId = "85a0f44b949e4bf49c29c9513662b74b";
+
+  try {
+    const response = await fetch(
+      `https://api.goshippo.com/orders/${orderId}/`,
+      {
+        headers: {
+          Authorization: `ShippoToken ${env.SHIPPO_API_TOKEN}`,
+          "SHIPPO-API-VERSION": "2018-02-08"
+        }
+      }
+    );
+
+    return Response.json({
+      order_found: response.ok,
+      shippo_status: response.status
+    });
+  } catch (error) {
+    return Response.json(
+      { order_found: false, error: "Shippo request failed" },
+      { status: 502 }
+    );
+  }
+}
+
 
     // Create a Stripe Embedded Checkout test session
     
