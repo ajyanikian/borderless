@@ -19,8 +19,9 @@ export async function saveCapturedOrder(env, {
       payment_intent_id,
       checkout_session_id,
       status
+      shippo_sync_state
     )
-    VALUES (?, ?, 'paid')
+    VALUES (?, ?, 'paid', 'pending')
     ON CONFLICT(payment_intent_id) DO NOTHING
   `).bind(paymentIntentId, checkoutSessionId).run();
 
