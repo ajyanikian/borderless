@@ -8,6 +8,7 @@ import { getShippingRates } from "./shipping.js";
 import { reviewStripeOrder } from "./stripe-order-review.js";
 
 import { saveCapturedOrder } from "./order-store.js";
+import { syncShippoOrder } from "./shippo-sync.js";
 
 
 const SHIPPING_RATES = {
@@ -70,7 +71,7 @@ async function verifyStripeSignature(body, header, secret) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     // Create a Stripe Embedded Checkout test session
@@ -354,6 +355,7 @@ if (event.type === "checkout.session.completed") {
     "BORDERLESS_ORDER_SAVED",
     review.paymentIntentId
   );
+  ctx.waitUntil(syncShippoOrder(env, review.paymentIntentId, event.data.object.id));
 
 } else {
   const response = await fetch(
@@ -398,6 +400,7 @@ console.log(
   review.paymentIntentId,
   review.amountCents
 );
+ctx.waitUntil(syncShippoOrder(env, review.paymentIntentId, event.data.object.id));
 
     }
   } catch (error) {

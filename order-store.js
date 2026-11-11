@@ -18,7 +18,7 @@ export async function saveCapturedOrder(env, {
     INSERT INTO orders (
       payment_intent_id,
       checkout_session_id,
-      status
+      status,
       shippo_sync_state
     )
     VALUES (?, ?, 'paid', 'pending')
