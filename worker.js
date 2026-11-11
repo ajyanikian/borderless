@@ -7,6 +7,8 @@ import { getShippingRates } from "./shipping.js";
 
 import { reviewStripeOrder } from "./stripe-order-review.js";
 
+import { saveCapturedOrder } from "./order-store.js";
+
 
 const SHIPPING_RATES = {
   1: 895,
@@ -341,11 +343,18 @@ if (event.type === "checkout.session.completed") {
         review.reason
       );
     
+
 } else if (review.alreadyCaptured) {
+  await saveCapturedOrder(env, {
+    paymentIntentId: review.paymentIntentId,
+    checkoutSessionId: event.data.object.id
+  });
+
   console.log(
-    "BORDERLESS_ALREADY_CAPTURED",
+    "BORDERLESS_ORDER_SAVED",
     review.paymentIntentId
   );
+
 } else {
   const response = await fetch(
 
