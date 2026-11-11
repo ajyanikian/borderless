@@ -340,8 +340,15 @@ if (event.type === "checkout.session.completed") {
         "BORDERLESS_ORDER_REJECTED",
         review.reason
       );
-    } else {
-      const response = await fetch(
+    
+} else if (review.alreadyCaptured) {
+  console.log(
+    "BORDERLESS_ALREADY_CAPTURED",
+    review.paymentIntentId
+  );
+} else {
+  const response = await fetch(
+
         `https://api.stripe.com/v1/payment_intents/${review.paymentIntentId}/capture`,
         {
           method: "POST",
