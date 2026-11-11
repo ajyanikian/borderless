@@ -387,11 +387,18 @@ if (event.type === "checkout.session.completed") {
         });
       }
 
-      console.log(
-        "BORDERLESS_PAYMENT_CAPTURED",
-        review.paymentIntentId,
-        review.amountCents
-      );
+
+await saveCapturedOrder(env, {
+  paymentIntentId: review.paymentIntentId,
+  checkoutSessionId: event.data.object.id
+});
+
+console.log(
+  "BORDERLESS_PAYMENT_CAPTURED_AND_SAVED",
+  review.paymentIntentId,
+  review.amountCents
+);
+
     }
   } catch (error) {
     console.error(
