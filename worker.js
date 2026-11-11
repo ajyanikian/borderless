@@ -330,20 +330,62 @@ if (paid) {
 }
 
 // Independently verify authorized Borderless orders.
+
 if (event.type === "checkout.session.completed") {
   try {
     const review = await reviewStripeOrder(env, event);
 
-    console.log(
-      "BORDERLESS_ORDER_REVIEW",
-      review.approved ? "APPROVED" : "REJECTED",
-      review.reason || "ALL_CHECKS_PASSED"
-    );
+    if (!review.approved) {
+      console.warn(
+        "BORDERLESS_ORDER_REJECTED",
+        review.reason
+      );
+    } else {
+      const response = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${review.paymentIntentId}/capture`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Idempotency-Key":
+              `borderless-preview-capture-${review.paymentIntentId}`
+          },
+          body: new URLSearchParams({
+            amount_to_capture: String(review.amountCents)
+          })
+        }
+      );
+
+      const payment = await response.json().catch(() => null);
+
+      if (!response.ok || payment?.status !== "succeeded") {
+        console.error(
+          "BORDERLESS_CAPTURE_FAILED",
+          response.status,
+          payment?.error?.code || "UNKNOWN"
+        );
+
+        return new Response("Capture failed", {
+          status: 503
+        });
+      }
+
+      console.log(
+        "BORDERLESS_PAYMENT_CAPTURED",
+        review.paymentIntentId,
+        review.amountCents
+      );
+    }
   } catch (error) {
     console.error(
-      "BORDERLESS_ORDER_REVIEW_ERROR",
+      "BORDERLESS_PROCESSING_ERROR",
       error.message
     );
+
+    return new Response("Processing failed", {
+      status: 503
+    });
   }
 }
 
