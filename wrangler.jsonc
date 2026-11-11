@@ -15,6 +15,15 @@
   "vars": {
     "STRIPE_PRICE_ID": "price_1UZ38UE7oxC51pBqSv3LXtw7"
   },
+
+"d1_databases": [
+  {
+    "binding": "ORDERS_DB",
+    "database_name": "borderless-orders-preview",
+    "database_id": "d1811263-a19a-456c-8e1c-3c6ce7178798"
+  }
+],
+
   "observability": {
     "enabled": true,
     "logs": {
