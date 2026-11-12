@@ -74,7 +74,27 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     
-
+if (url.pathname === "/api/order-confirmation") {
+  if (request.method !== "GET") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+  const sessionId = url.searchParams.get("session_id") || "";
+  if (!/^cs_test_[A-Za-z0-9]+$/.test(sessionId)) {
+    return Response.json({ confirmed: false }, { status: 400 });
+  }
+  try {
+    const record = await env.ORDERS_DB.prepare(
+      "SELECT status FROM orders WHERE checkout_session_id = ? LIMIT 1"
+    ).bind(sessionId).first();
+    return Response.json(
+      { confirmed: record?.status === "paid" },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    console.error("ORDER_CONFIRMATION_LOOKUP_FAILED", error?.message);
+    return Response.json({ confirmed: false }, { status: 503 });
+  }
+}
 
 
     // Create a Stripe Embedded Checkout test session
