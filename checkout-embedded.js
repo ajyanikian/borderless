@@ -67,7 +67,7 @@ params.set(
 
 
   const returnUrl = new URL(
-    "/?checkout=return#shop",
+    "/thank-you.html?session_id={CHECKOUT_SESSION_ID}",
     origin
   );
 
