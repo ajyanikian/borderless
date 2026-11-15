@@ -69,7 +69,11 @@ img{max-width:100%;display:block}
 .info h1{color:var(--blue);font-weight:400;font-size:1rem;margin:.3rem 0 .9rem}
 .info .price{margin:0 0 1rem;font-size:.95rem}
 .cart{display:flex;align-items:stretch}
-.cart select{width:4.5rem;border:1px solid #D4D4DC;text-align:center;font:inherit;font-size:.9rem;background:#fff;color:var(--ink);border-radius:0;cursor:pointer}
+.qty-stepper{display:inline-flex;align-items:stretch;border:1px solid #D4D4DC;background:#fff}
+.qty-stepper button{width:2.25rem;border:0;background:#fff;color:var(--ink);font:inherit;font-size:1.1rem;cursor:pointer}
+.qty-stepper button:disabled{opacity:.3;cursor:not-allowed}
+.qty-stepper input{width:2.5rem;min-width:0;border:0;border-radius:0;background:#fff;color:var(--ink);font:inherit;font-size:.9rem;text-align:center;appearance:textfield;-moz-appearance:textfield}
+.qty-stepper input::-webkit-inner-spin-button,.qty-stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .buy{display:inline-flex;align-items:center;justify-content:center;min-height:2.6rem;padding:0 2.25rem;background:var(--blue);color:#fff;text-decoration:none;font-size:.9rem;border:0}
 .buy.soon{opacity:.55;pointer-events:none}
 .info .desc{margin:1.9rem 0 .9rem;font-size:.86rem;line-height:1.65}
@@ -131,7 +135,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     <div class="info">
       <h1>Palestinian Olive Oil</h1>
       <p class="price">$45.00</p>
-      <div class="cart"><select id="qty" aria-label="Quantity of olive oil cans"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option></select><a class="buy" id="buy" href="#">Add to cart</a></div>
+      <div class="cart"><div class="qty-stepper" aria-label="Choose number of olive oil cans"><button type="button" id="qtyMinus" aria-label="Remove one can">−</button><input id="qty" type="number" inputmode="numeric" min="1" max="20" step="1" value="1" aria-label="Quantity of olive oil cans"><button type="button" id="qtyPlus" aria-label="Add one can">+</button></div><a class="buy" id="buy" href="#">Add to cart</a></div>
       <p class="desc">Harvested from a farm near Ramallah, this olive oil supports economic self-reliance under occupation and helps fund dignity, autonomy, and a borderless future.</p>
       <ul class="plus"><li>500mL | 16.9 fl oz</li><li>Small batch</li><li>Cold pressed</li><li>Single origin from Palestine</li></ul>
       <hr>
@@ -171,23 +175,47 @@ const PHOTOS = [
 
 const buy = document.getElementById("buy");
 const qty = document.getElementById("qty");
+const qtyMinus = document.getElementById("qtyMinus");
+const qtyPlus = document.getElementById("qtyPlus");
+const MAX_CANS = 20;
 // Test environment only. Keep normal visits closed; enable demo with ?test_checkout=1.
 const testCheckout = new URLSearchParams(location.search).get("test_checkout") === "1";
+function validSelectedQuantity() {
+  const n = Number(qty.value);
+  return qty.value.trim() !== "" && Number.isInteger(n) && n >= 1 && n <= MAX_CANS ? n : null;
+}
+function updateQuantityUI() {
+  const n = validSelectedQuantity();
+  qtyMinus.disabled = n === null || n <= 1;
+  qtyPlus.disabled = n === null || n >= MAX_CANS;
+  if (!testCheckout) return;
+  if (n === null) {
+    buy.removeAttribute("href");
+    buy.classList.add("soon");
+    buy.setAttribute("aria-disabled", "true");
+  } else {
+    buy.href = "/checkout-form-preview.html?quantity=" + n;
+    buy.classList.remove("soon");
+    buy.removeAttribute("aria-disabled");
+  }
+}
+qtyMinus.addEventListener("click", () => { qty.value = String(Math.max(1, (validSelectedQuantity() ?? 1) - 1)); updateQuantityUI(); });
+qtyPlus.addEventListener("click", () => { qty.value = String(Math.min(MAX_CANS, (validSelectedQuantity() ?? 1) + 1)); updateQuantityUI(); });
+qty.addEventListener("input", updateQuantityUI);
+qty.addEventListener("change", () => {
+  const value = Number(qty.value);
+  qty.value = String(Number.isFinite(value) ? Math.max(1, Math.min(MAX_CANS, Math.round(value))) : 1);
+  updateQuantityUI();
+});
 if (testCheckout) {
   buy.textContent = "Buy now (test)";
-  buy.href = "/checkout-form-preview.html?quantity=1";
-  qty.addEventListener("change", () => {
-    buy.href = "/checkout-form-preview.html?quantity=" + encodeURIComponent(qty.value);
-  });
-  buy.addEventListener("click", () => {
-    buy.href = "/checkout-form-preview.html?quantity=" + encodeURIComponent(qty.value);
-  });
 } else {
   buy.classList.add("soon");
   buy.removeAttribute("href");
   buy.title = "Checkout coming soon";
   buy.setAttribute("aria-disabled", "true");
 }
+updateQuantityUI();
 
 let cur=0; const main=document.getElementById("mainImg"), th=document.getElementById("thumbs");
 th.innerHTML=PHOTOS.map(([s,a],i)=>`<button type="button" aria-label="${a}" aria-current="${i===0}"><img src="${s}" alt="" loading="lazy"></button>`).join("");

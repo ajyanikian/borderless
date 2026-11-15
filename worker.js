@@ -152,7 +152,7 @@ if (url.pathname === "/api/checkout-shipping") {
         const input = await request.json().catch(() => null);
         if (!validQuantity(input?.quantity)) {
           return Response.json(
-            { error: "Select one can or an even quantity from 2 to 20." },
+            { error: "Select a whole number of cans from 1 to 20." },
             { status: 400, headers: { "Cache-Control": "no-store" } }
           );
         }

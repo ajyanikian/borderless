@@ -101,20 +101,47 @@ export async function getShippingRates({ token, shipFrom, shipTo, quantity }) {
 
   if (parcels.length === 1) throw new Error("No shipping rates available");
 
-  // Some carriers do not return multi-piece rates. Quote a single 2-can
-  // box, then charge for the actual number of individual boxes to be sent.
+  // Some carriers provide no multi-piece rate. Quote each DISTINCT
+  // physical box size/weight, then multiply its rate by that box count.
+  // This matters for 3, 5, 7 ... cans: the last box holds only one can.
   // Labels remain manual and EACH parcel requires its own postage label.
-  const separate = await quoteShipment({
-    token, shipFrom, shipTo, parcels: [parcels[0]]
-  });
-  if (!separate.cheapest) throw new Error("No shipping rates available");
+  const groups = new Map();
+  for (const item of parcels) {
+    const key = JSON.stringify(item);
+    const group = groups.get(key);
+    if (group) group.count++;
+    else groups.set(key, { parcel: item, count: 1 });
+  }
+
+  let amount = 0;
+  let firstQuote = null;
+  const boxQuotes = [];
+  for (const { parcel, count } of groups.values()) {
+    const quote = await quoteShipment({
+      token, shipFrom, shipTo, parcels: [parcel]
+    });
+    if (!quote.cheapest) throw new Error("No shipping rates available");
+    firstQuote ??= quote;
+    amount += quote.cheapest.amount * count;
+    boxQuotes.push({
+      weightGrams: Number(parcel.weight),
+      count,
+      rateId: quote.cheapest.id,
+      amountCentsPerBox: quote.cheapest.amount
+    });
+  }
+
   return {
-    ...separate,
+    ...firstQuote,
     cheapest: {
-      ...separate.cheapest,
-      amount: separate.cheapest.amount * parcels.length,
-      service: `${separate.cheapest.service} (${parcels.length} boxes)`
+      ...firstQuote.cheapest,
+      amount,
+      carrier: boxQuotes.length > 1 ? "Multi-box" : firstQuote.cheapest.carrier,
+      service: boxQuotes.length > 1
+        ? `separately quoted (${parcels.length} boxes)`
+        : `${firstQuote.cheapest.service} (${parcels.length} boxes)`
     },
+    boxQuotes,
     strategy: "separate_boxes",
     parcelCount: parcels.length
   };

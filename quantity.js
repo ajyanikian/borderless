@@ -2,15 +2,14 @@
  * Borderless multi-can quantity and packing rules.
  * Launch-safe limit: 20 cans (10 parcels). Increase only after testing
  * larger parcel counts and operational handling with Shippo/carriers.
- * Allowed: one can, or an even number of cans.
+ * Allowed: any whole number from 1 through 20.
  */
 export const UNIT_PRICE_CENTS = 4500;
 export const MAX_CANS = 20;
 
 export function validQuantity(quantity) {
   return Number.isInteger(quantity) &&
-    quantity >= 1 && quantity <= MAX_CANS &&
-    (quantity === 1 || quantity % 2 === 0);
+    quantity >= 1 && quantity <= MAX_CANS;
 }
 
 export function packedParcels(quantity) {
@@ -23,8 +22,11 @@ export function packedParcels(quantity) {
     weight: String(weight), mass_unit: "g"
   });
 
-  if (quantity === 1) return [parcel(600)];
-  return Array.from({ length: quantity / 2 }, () => parcel(1100));
+  // Two cans fit in one 1100g box; an unmatched can uses one 600g box.
+  const pairs = Math.floor(quantity / 2);
+  const parcels = Array.from({ length: pairs }, () => parcel(1100));
+  if (quantity % 2 === 1) parcels.push(parcel(600));
+  return parcels;
 }
 
 export function packedWeightGrams(quantity) {
