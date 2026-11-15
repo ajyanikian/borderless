@@ -13,8 +13,8 @@
 <!--
   ════════════════════════════════════════════════════════════════
   HOW TO EDIT (no coding needed beyond this box)
-  • "Add to cart": paste your Stripe Payment Link into BUY_LINK below (starts with https://buy.stripe.com/).
-    In Stripe, turn on "Let customers adjust quantity" so the amount can be changed at checkout.
+  • Checkout uses the verified Borderless Stripe Checkout Form, not a Stripe Payment Link.
+  • Keep PUBLIC_CHECKOUT_ENABLED false until the backend and operational launch are verified.
   • Email / Instagram: change CONTACT_EMAIL and INSTAGRAM below.
   • "Share my vision" and "Subscribe" open the visitor's email app, addressed to CONTACT_EMAIL (free, nothing to maintain).
   • Photos: the .jpg files in this folder. Keep the same file names to swap a photo.
@@ -69,7 +69,11 @@ img{max-width:100%;display:block}
 .info h1{color:var(--blue);font-weight:400;font-size:1rem;margin:.3rem 0 .9rem}
 .info .price{margin:0 0 1rem;font-size:.95rem}
 .cart{display:flex;align-items:stretch}
-.cart input{width:2.6rem;border:1px solid #D4D4DC;text-align:center;font:inherit;font-size:.9rem;background:#fff;color:var(--ink)}
+.qty-stepper{display:inline-flex;align-items:stretch;border:1px solid #D4D4DC;background:#fff}
+.qty-stepper button{width:2.25rem;border:0;background:#fff;color:var(--ink);font:inherit;font-size:1.1rem;cursor:pointer}
+.qty-stepper button:disabled{opacity:.3;cursor:not-allowed}
+.qty-stepper input{width:2.5rem;min-width:0;border:0;border-radius:0;background:#fff;color:var(--ink);font:inherit;font-size:.9rem;text-align:center;appearance:textfield;-moz-appearance:textfield}
+.qty-stepper input::-webkit-inner-spin-button,.qty-stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .buy{display:inline-flex;align-items:center;justify-content:center;min-height:2.6rem;padding:0 2.25rem;background:var(--blue);color:#fff;text-decoration:none;font-size:.9rem;border:0}
 .buy.soon{opacity:.55;pointer-events:none}
 .info .desc{margin:1.9rem 0 .9rem;font-size:.86rem;line-height:1.65}
@@ -131,7 +135,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     <div class="info">
       <h1>Palestinian Olive Oil</h1>
       <p class="price">$45.00</p>
-      <div class="cart"><input id="qty" type="number" min="1" value="1" aria-label="Quantity"><a class="buy" id="buy" href="#">Add to cart</a></div>
+      <div class="cart"><div class="qty-stepper" role="group" aria-label="Choose number of olive oil cans"><button type="button" id="qtyMinus" aria-label="Remove one can">−</button><input id="qty" type="number" inputmode="numeric" min="1" max="20" step="1" value="1" aria-label="Quantity of olive oil cans"><button type="button" id="qtyPlus" aria-label="Add one can">+</button></div><a class="buy soon" id="buy" aria-disabled="true">Buy now</a></div>
       <p class="desc">Harvested from a farm near Ramallah, this olive oil supports economic self-reliance under occupation and helps fund dignity, autonomy, and a borderless future.</p>
       <ul class="plus"><li>500mL | 16.9 fl oz</li><li>Small batch</li><li>Cold pressed</li><li>Single origin from Palestine</li></ul>
       <hr>
@@ -160,7 +164,8 @@ footer a{text-decoration:underline;text-underline-offset:3px}
 
 <script>
 /* ── EDIT HERE ─────────────────────────────────────────────── */
-const BUY_LINK      = "";                                              // ← Stripe Payment Link
+const CHECKOUT_BASE = "https://checkout.borderlesstheory.com";
+const PUBLIC_CHECKOUT_ENABLED = false; // Keep OFF until launch readiness is confirmed.
 const CONTACT_EMAIL = "hello@example.com";                             // ← Borderless email
 const INSTAGRAM     = "https://www.instagram.com/borderless_theory/";
 const PHOTOS = [
@@ -169,64 +174,54 @@ const PHOTOS = [
 ];
 /* ─────────────────────────────────────────────────────────── */
 
+// The storefront uses the production Checkout Form at its dedicated origin.
+// Do not call legacy /api/checkout or test-only checkout endpoints.
 const buy = document.getElementById("buy");
-const testCheckout = new URLSearchParams(location.search)
-  .get("test_checkout") === "1";
+const qty = document.getElementById("qty");
+const qtyMinus = document.getElementById("qtyMinus");
+const qtyPlus = document.getElementById("qtyPlus");
+const MAX_CANS = 20;
 
-if (testCheckout) {
-  buy.textContent = "Buy now (test)";
-  buy.href = "#shop";
-  document.getElementById("qty").max = "3";
-
-  buy.addEventListener("click", async (event) => {
-    event.preventDefault();
-
-    if (buy.dataset.loading === "1") return;
-
-    const quantity = Number(
-      document.getElementById("qty").value
-    );
-
-    if (!Number.isInteger(quantity) ||
-        quantity < 1 || quantity > 3) {
-      alert("Please select 1, 2, or 3 cans.");
-      return;
-    }
-
-    buy.dataset.loading = "1";
-    buy.textContent = "Opening checkout...";
-
-    try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ quantity })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.url) {
-        throw new Error(
-          data.error || "Unable to start checkout."
-        );
-      }
-
-      window.location.assign(data.url);
-
-    } catch (error) {
-      alert(error.message);
-      buy.dataset.loading = "0";
-      buy.textContent = "Buy now (test)";
-    }
-  });
-
-} else {
-  buy.classList.add("soon");
-  buy.removeAttribute("href");
-  buy.title = "Checkout coming soon";
+function validSelectedQuantity() {
+  const raw = qty.value.trim();
+  const n = Number(raw);
+  return raw !== "" && Number.isInteger(n) && n >= 1 && n <= MAX_CANS ? n : null;
 }
+function updateQuantityUI() {
+  const n = validSelectedQuantity();
+  qtyMinus.disabled = n !== null && n <= 1;
+  qtyPlus.disabled = n !== null && n >= MAX_CANS;
+
+  if (!PUBLIC_CHECKOUT_ENABLED || n === null) {
+    buy.classList.add("soon");
+    buy.removeAttribute("href");
+    buy.setAttribute("aria-disabled", "true");
+    buy.title = "Checkout coming soon";
+    return;
+  }
+
+  const checkoutUrl = new URL("/checkout.html", CHECKOUT_BASE);
+  checkoutUrl.searchParams.set("quantity", String(n));
+  buy.href = checkoutUrl.toString();
+  buy.classList.remove("soon");
+  buy.removeAttribute("aria-disabled");
+  buy.title = "";
+}
+qtyMinus.addEventListener("click", () => {
+  qty.value = String(Math.max(1, (validSelectedQuantity() ?? 1) - 1));
+  updateQuantityUI();
+});
+qtyPlus.addEventListener("click", () => {
+  qty.value = String(Math.min(MAX_CANS, (validSelectedQuantity() ?? 1) + 1));
+  updateQuantityUI();
+});
+qty.addEventListener("input", updateQuantityUI);
+qty.addEventListener("change", () => {
+  const value = Number(qty.value);
+  qty.value = String(Number.isFinite(value) ? Math.max(1, Math.min(MAX_CANS, Math.round(value))) : 1);
+  updateQuantityUI();
+});
+updateQuantityUI();
 
 let cur=0; const main=document.getElementById("mainImg"), th=document.getElementById("thumbs");
 th.innerHTML=PHOTOS.map(([s,a],i)=>`<button type="button" aria-label="${a}" aria-current="${i===0}"><img src="${s}" alt="" loading="lazy"></button>`).join("");
