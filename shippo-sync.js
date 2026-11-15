@@ -1,10 +1,11 @@
 import { reviewStripeOrder } from "./stripe-order-review.js";
+import { packedWeightGrams, parcelCount, UNIT_PRICE_CENTS } from "./quantity.js";
 
-// Synchronize one already-paid, verified preview order with Shippo.
+// Synchronize one already-paid, verified test order with Shippo.
 // This creates an ORDER, not a postage label.
 export async function syncShippoOrder(env, paymentIntentId, checkoutSessionId) {
   if (!env.SHIPPO_API_TOKEN?.startsWith("shippo_test_") ||
-      !env.STRIPE_SECRET_KEY?.startsWith("sk_test_")) {
+      !/^sk_test_/.test(env.STRIPE_SECRET_KEY || "")) {
     throw new Error("TEST_KEYS_REQUIRED");
   }
 
@@ -37,6 +38,7 @@ export async function syncShippoOrder(env, paymentIntentId, checkoutSessionId) {
     );
     if (!response.ok) throw new Error(`STRIPE_SESSION_${response.status}`);
     const session = await response.json();
+    const quantity = review.quantity;
     const shipping = session.collected_information?.shipping_details || session.shipping_details;
     const address = shipping?.address;
     if (!address?.line1 || !address?.city || !address?.state ||
@@ -66,17 +68,21 @@ export async function syncShippoOrder(env, paymentIntentId, checkoutSessionId) {
       to_address: toAddress,
       from_address: sender,
       currency: "USD",
-      subtotal_price: "45.00",
+      subtotal_price: (quantity * UNIT_PRICE_CENTS / 100).toFixed(2),
       shipping_cost: (session.shipping_cost.amount_total / 100).toFixed(2),
       shipping_cost_currency: "USD",
       total_price: (session.amount_total / 100).toFixed(2),
       total_tax: "0.00",
-      weight: "600",
+      weight: String(packedWeightGrams(quantity)),
       weight_unit: "g",
-      line_items: [{ title: "Palestinian Olive Oil, 500 mL", quantity: 1,
-        total_price: "45.00", currency: "USD" }]
+      line_items: [{ title: "Palestinian Olive Oil, 500 mL", quantity,
+        total_price: (quantity * UNIT_PRICE_CENTS / 100).toFixed(2),
+        currency: "USD" }]
     };
 
+    // Shippo order records don't automatically buy labels. The packer must
+    // create a shipping label for every physical box in this order.
+    console.log("BORDERLESS_PACKING_BOX_COUNT", paymentIntentId, parcelCount(quantity));
     const shippo = await fetch("https://api.goshippo.com/orders/", {
       method: "POST",
       headers: {

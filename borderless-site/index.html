@@ -69,7 +69,7 @@ img{max-width:100%;display:block}
 .info h1{color:var(--blue);font-weight:400;font-size:1rem;margin:.3rem 0 .9rem}
 .info .price{margin:0 0 1rem;font-size:.95rem}
 .cart{display:flex;align-items:stretch}
-.cart input{width:2.6rem;border:1px solid #D4D4DC;text-align:center;font:inherit;font-size:.9rem;background:#fff;color:var(--ink)}
+.cart select{width:4.5rem;border:1px solid #D4D4DC;text-align:center;font:inherit;font-size:.9rem;background:#fff;color:var(--ink);border-radius:0;cursor:pointer}
 .buy{display:inline-flex;align-items:center;justify-content:center;min-height:2.6rem;padding:0 2.25rem;background:var(--blue);color:#fff;text-decoration:none;font-size:.9rem;border:0}
 .buy.soon{opacity:.55;pointer-events:none}
 .info .desc{margin:1.9rem 0 .9rem;font-size:.86rem;line-height:1.65}
@@ -131,7 +131,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     <div class="info">
       <h1>Palestinian Olive Oil</h1>
       <p class="price">$45.00</p>
-      <div class="cart"><input id="qty" type="number" min="1" value="1" aria-label="Quantity"><a class="buy" id="buy" href="#">Add to cart</a></div>
+      <div class="cart"><select id="qty" aria-label="Quantity of olive oil cans"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option></select><a class="buy" id="buy" href="#">Add to cart</a></div>
       <p class="desc">Harvested from a farm near Ramallah, this olive oil supports economic self-reliance under occupation and helps fund dignity, autonomy, and a borderless future.</p>
       <ul class="plus"><li>500mL | 16.9 fl oz</li><li>Small batch</li><li>Cold pressed</li><li>Single origin from Palestine</li></ul>
       <hr>
@@ -170,62 +170,23 @@ const PHOTOS = [
 /* ─────────────────────────────────────────────────────────── */
 
 const buy = document.getElementById("buy");
-const testCheckout = new URLSearchParams(location.search)
-  .get("test_checkout") === "1";
-
+const qty = document.getElementById("qty");
+// Test environment only. Keep normal visits closed; enable demo with ?test_checkout=1.
+const testCheckout = new URLSearchParams(location.search).get("test_checkout") === "1";
 if (testCheckout) {
   buy.textContent = "Buy now (test)";
-  buy.href = "#shop";
-  document.getElementById("qty").max = "3";
-
-  buy.addEventListener("click", async (event) => {
-    event.preventDefault();
-
-    if (buy.dataset.loading === "1") return;
-
-    const quantity = Number(
-      document.getElementById("qty").value
-    );
-
-    if (!Number.isInteger(quantity) ||
-        quantity < 1 || quantity > 3) {
-      alert("Please select 1, 2, or 3 cans.");
-      return;
-    }
-
-    buy.dataset.loading = "1";
-    buy.textContent = "Opening checkout...";
-
-    try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ quantity })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.url) {
-        throw new Error(
-          data.error || "Unable to start checkout."
-        );
-      }
-
-      window.location.assign(data.url);
-
-    } catch (error) {
-      alert(error.message);
-      buy.dataset.loading = "0";
-      buy.textContent = "Buy now (test)";
-    }
+  buy.href = "/checkout-form-preview.html?quantity=1";
+  qty.addEventListener("change", () => {
+    buy.href = "/checkout-form-preview.html?quantity=" + encodeURIComponent(qty.value);
   });
-
+  buy.addEventListener("click", () => {
+    buy.href = "/checkout-form-preview.html?quantity=" + encodeURIComponent(qty.value);
+  });
 } else {
   buy.classList.add("soon");
   buy.removeAttribute("href");
   buy.title = "Checkout coming soon";
+  buy.setAttribute("aria-disabled", "true");
 }
 
 let cur=0; const main=document.getElementById("mainImg"), th=document.getElementById("thumbs");

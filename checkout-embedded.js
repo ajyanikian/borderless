@@ -6,12 +6,16 @@
  * Shipping rates will be supplied by Shippo
  * after the customer enters a delivery address.
  *
- * Test environment only.
+ * Test environment only. Never accepts live credentials.
  */
 
-export async function createCheckoutFormSession(env, origin) {
-  // Never allow live charges during development.
-  if (!env.STRIPE_SECRET_KEY?.startsWith("sk_test_")) {
+import { validQuantity } from "./quantity.js";
+
+export async function createCheckoutFormSession(env, origin, quantity) {
+  if (!validQuantity(quantity)) {
+    throw new Error("INVALID_QUANTITY");
+  }
+  if (!/^sk_test_/.test(env.STRIPE_SECRET_KEY || "")) {
     throw new Error("Stripe test key required");
   }
 
@@ -22,6 +26,7 @@ export async function createCheckoutFormSession(env, origin) {
   const params = new URLSearchParams();
 
   params.set("mode", "payment");
+  params.set("allowed_payment_method_types[0]", "card");
   
 params.set(
   "payment_intent_data[capture_method]",
@@ -35,9 +40,10 @@ params.set(
   "borderless_shippo_preview"
 );
 
-  // Only one can until other package profiles are verified.
+  // Stripe, not the browser, calculates the payable subtotal.
   params.set("line_items[0][price]", env.STRIPE_PRICE_ID);
-  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][quantity]", String(quantity));
+  params.set("metadata[checkout_quantity]", String(quantity));
 
   // United States shipping only.
   params.set(
@@ -103,6 +109,7 @@ if (!response.ok || !session?.client_secret) {
 
   return {
     clientSecret: session.client_secret,
-    sessionId: session.id
+    sessionId: session.id,
+    quantity
   };
 }

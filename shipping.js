@@ -14,27 +14,13 @@
  * Never handles payment information.
  */
 
-// Confirmed package profiles
-const PACKAGES = {
-  1: {
-    length: "8",
-    width: "6",
-    height: "4",
-    distance_unit: "in",
-    weight: "600",
-    mass_unit: "g"
-  }
-};
-
-// We will add 2- and 3-can packages
-// after confirming their packed dimensions and weights.
+import { packedParcels, validQuantity } from "./quantity.js";
 
 export function getPackage(quantity) {
-  if (!Number.isInteger(quantity) || !PACKAGES[quantity]) {
-    throw new Error("Unsupported package quantity");
+  if (!validQuantity(quantity) || quantity > 2) {
+    throw new Error("This helper handles one physical box only");
   }
-
-  return { ...PACKAGES[quantity] };
+  return packedParcels(quantity)[0];
 }
 
 export function validateAddress(address) {
@@ -67,51 +53,29 @@ export function validateAddress(address) {
   return true;
 }
 
-export async function getShippingRates({
-  token,
-  shipFrom,
-  shipTo,
-  quantity
-}) {
-  if (!token) {
-    throw new Error("Shippo API token is missing");
-  }
+// Ask Shippo for an actual quote for the supplied parcel list.
+async function quoteShipment({ token, shipFrom, shipTo, parcels }) {
+  const response = await fetch("https://api.goshippo.com/shipments/", {
+    method: "POST",
+    headers: {
+      Authorization: `ShippoToken ${token}`,
+      "Content-Type": "application/json",
+      "SHIPPO-API-VERSION": "2018-02-08"
+    },
+    body: JSON.stringify({
+      address_from: shipFrom,
+      address_to: shipTo,
+      parcels,
+      async: false
+    })
+  });
 
-  validateAddress(shipFrom);
-  validateAddress(shipTo);
-
-  const parcel = getPackage(quantity);
-
-  const response = await fetch(
-    "https://api.goshippo.com/shipments/",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `ShippoToken ${token}`,
-        "Content-Type": "application/json",
-        "SHIPPO-API-VERSION": "2018-02-08"
-      },
-      body: JSON.stringify({
-        address_from: shipFrom,
-        address_to: shipTo,
-        parcels: [parcel],
-        async: false
-      })
-    }
-  );
-
-if (!response.ok) {
-  throw new Error(`SHIPPO_HTTP_${response.status}`);
-}
-
+  if (!response.ok) throw new Error(`SHIPPO_HTTP_${response.status}`);
   const shipment = await response.json();
-
   const rates = (shipment.rates || [])
-    .filter(rate =>
-      rate.currency === "USD" &&
-      Number.isFinite(Number(rate.amount)) &&
-      Number(rate.amount) > 0
-    )
+    .filter(rate => rate.currency === "USD" &&
+      Number.isFinite(Number(rate.amount)) && Number(rate.amount) > 0 &&
+      typeof rate.object_id === "string" && rate.object_id.length > 0)
     .map(rate => ({
       id: rate.object_id,
       carrier: rate.provider,
@@ -120,13 +84,38 @@ if (!response.ok) {
     }))
     .sort((a, b) => a.amount - b.amount);
 
-  if (!rates.length) {
-    throw new Error("No shipping rates available");
+  return { shipmentId: shipment.object_id, rates, cheapest: rates[0] || null };
+}
+
+export async function getShippingRates({ token, shipFrom, shipTo, quantity }) {
+  if (!token) throw new Error("Shippo API token is missing");
+  validateAddress(shipFrom);
+  validateAddress(shipTo);
+
+  // No parcel count or weight can be supplied by the client.
+  const parcels = packedParcels(quantity);
+  const combined = await quoteShipment({ token, shipFrom, shipTo, parcels });
+  if (combined.cheapest) {
+    return { ...combined, strategy: "multiparcel", parcelCount: parcels.length };
   }
 
+  if (parcels.length === 1) throw new Error("No shipping rates available");
+
+  // Some carriers do not return multi-piece rates. Quote a single 2-can
+  // box, then charge for the actual number of individual boxes to be sent.
+  // Labels remain manual and EACH parcel requires its own postage label.
+  const separate = await quoteShipment({
+    token, shipFrom, shipTo, parcels: [parcels[0]]
+  });
+  if (!separate.cheapest) throw new Error("No shipping rates available");
   return {
-    shipmentId: shipment.object_id,
-    cheapest: rates[0],
-    rates
+    ...separate,
+    cheapest: {
+      ...separate.cheapest,
+      amount: separate.cheapest.amount * parcels.length,
+      service: `${separate.cheapest.service} (${parcels.length} boxes)`
+    },
+    strategy: "separate_boxes",
+    parcelCount: parcels.length
   };
 }

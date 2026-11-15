@@ -26,6 +26,7 @@
   <h1>borderless</h1>
   <p>Palestinian Olive Oil | 500 ml | $45</p>
   <p><strong>TEST MODE ONLY</strong></p>
+  <p id="orderSummary">Shipping calculated from your US delivery address.</p>
 
   <div id="status" role="status">Initializing checkout...</div>
   <div id="checkout-form"></div>
@@ -61,16 +62,21 @@
 
     async function initialize() {
       try {
-        const response = await fetch(
-          "/api/checkout-form-session",
-          { method: "POST" }
-        );
+        const quantity = Number(new URLSearchParams(location.search).get("quantity") || "1");
+        const response = await fetch("/api/checkout-form-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quantity })
+        });
 
         const data = await response.json();
 
         if (!response.ok || !data.clientSecret) {
           throw new Error("Session creation failed");
         }
+
+        document.getElementById("orderSummary").textContent =
+          `${data.quantity} ${data.quantity === 1 ? "can" : "cans"} of olive oil · $${45 * data.quantity}.00 before shipping.`;
 
         const checkout = await stripe.initCheckoutFormSdk({
           clientSecret: data.clientSecret

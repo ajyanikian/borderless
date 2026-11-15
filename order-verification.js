@@ -3,7 +3,9 @@ import {
   fingerprintShippingAddress
 } from "./checkout-shipping.js";
 
-const PRODUCT_PRICE_CENTS = 4500;
+import {
+  UNIT_PRICE_CENTS, quantityFromSession, parcelCount
+} from "./quantity.js";
 
 export async function verifyAuthorizedOrder({
   session,
@@ -16,7 +18,7 @@ export async function verifyAuthorizedOrder({
     reason
   });
 
-  // Test-mode Borderless orders only.
+  // Live Borderless orders from the verified Stripe and Shippo workflow only.
   if (
     session?.livemode !== false ||
     paymentIntent?.livemode !== false ||
@@ -44,14 +46,15 @@ export async function verifyAuthorizedOrder({
     return reject("PAYMENT_MISMATCH");
   }
 
-  // Verify the actual Stripe product and quantity.
+  // Stripe is authoritative: verify quantity, price ID and subtotal.
+  const quantity = quantityFromSession(session);
+  const subtotal = quantity * UNIT_PRICE_CENTS;
   if (
-    !expectedPriceId?.startsWith("price_") ||
-    !Array.isArray(lineItems) ||
-    lineItems.length !== 1 ||
+    !quantity || !expectedPriceId?.startsWith("price_") ||
+    !Array.isArray(lineItems) || lineItems.length !== 1 ||
     lineItems[0].price?.id !== expectedPriceId ||
-    lineItems[0].quantity !== 1 ||
-    lineItems[0].amount_subtotal !== PRODUCT_PRICE_CENTS
+    lineItems[0].quantity !== quantity ||
+    lineItems[0].amount_subtotal !== subtotal
   ) {
     return reject("INVALID_PRODUCT");
   }
@@ -62,8 +65,16 @@ export async function verifyAuthorizedOrder({
   if (
     !Number.isInteger(shipping) ||
     shipping <= 0 ||
-    shipping > 10000 ||
+    shipping > 10000 * parcelCount(quantity) ||
     !session.metadata?.shipping_quote_rate_id ||
+    (session.metadata?.shipping_quote_quantity != null &&
+      session.metadata.shipping_quote_quantity !== String(quantity)) ||
+    (session.metadata?.shipping_quote_parcels != null &&
+      session.metadata.shipping_quote_parcels !== String(parcelCount(quantity))) ||
+    (quantity > 1 && (
+      session.metadata?.shipping_quote_quantity !== String(quantity) ||
+      !["multiparcel", "separate_boxes"].includes(
+        session.metadata?.shipping_quote_strategy))) ||
     session.total_details?.amount_shipping !== shipping ||
     session.shipping_cost?.amount_total !== shipping
   ) {
@@ -95,13 +106,12 @@ export async function verifyAuthorizedOrder({
     return reject("TAX_NOT_CONFIGURED");
   }
 
-  const expectedTotal =
-    PRODUCT_PRICE_CENTS + shipping;
+  const expectedTotal = subtotal + shipping;
 
   if (
     session.currency !== "usd" ||
     paymentIntent.currency !== "usd" ||
-    session.amount_subtotal !== PRODUCT_PRICE_CENTS ||
+    session.amount_subtotal !== subtotal ||
     session.amount_total !== expectedTotal ||
     paymentIntent.amount !== expectedTotal ||
     
@@ -121,6 +131,7 @@ return {
   approved: true,
   alreadyCaptured: paymentIntent.status === "succeeded",
   amountCents: expectedTotal,
+  quantity,
   paymentIntentId: paymentIntent.id
 };
 

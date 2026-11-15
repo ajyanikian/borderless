@@ -1,5 +1,6 @@
 
 import { updateCheckoutShipping } from "./checkout-shipping.js";
+import { validQuantity } from "./quantity.js";
 
 import { createCheckoutFormSession } from "./checkout-embedded.js";
 
@@ -11,11 +12,6 @@ import { saveCapturedOrder } from "./order-store.js";
 import { syncShippoOrder } from "./shippo-sync.js";
 
 
-const SHIPPING_RATES = {
-  1: 895,
-  2: 1195,
-  3: 1495
-};
 
 // Verify incoming Stripe webhook signatures
 async function verifyStripeSignature(body, header, secret) {
@@ -153,13 +149,21 @@ if (url.pathname === "/api/checkout-shipping") {
       }
 
       try {
+        const input = await request.json().catch(() => null);
+        if (!validQuantity(input?.quantity)) {
+          return Response.json(
+            { error: "Select one can or an even quantity from 2 to 20." },
+            { status: 400, headers: { "Cache-Control": "no-store" } }
+          );
+        }
         const session = await createCheckoutFormSession(
           env,
-          url.origin
+          url.origin,
+          input.quantity
         );
 
         return Response.json(
-          { clientSecret: session.clientSecret },
+          { clientSecret: session.clientSecret, quantity: session.quantity },
           {
             headers: {
               "Cache-Control": "no-store"
@@ -450,129 +454,9 @@ return new Response("ok", { status: 200 });
       });
     }
 
-    // Create Stripe Checkout Session
+    // The legacy checkout is NOT wired to D1/Shippo. Keep it retired.
     if (url.pathname === "/api/checkout") {
-      if (request.method !== "POST") {
-        return new Response(
-          "Method not allowed",
-          { status: 405 }
-        );
-      }
-
-      const body = await request.json()
-        .catch(() => null);
-
-      const quantity = Number(body?.quantity);
-
-      if (
-        !Number.isInteger(quantity) ||
-        !SHIPPING_RATES[quantity]
-      ) {
-        return Response.json(
-          { error: "Select between 1 and 3 cans." },
-          { status: 400 }
-        );
-      }
-
-      if (
-        !env.STRIPE_SECRET_KEY ||
-        !env.STRIPE_PRICE_ID
-      ) {
-        return Response.json(
-          {
-            error: "Stripe checkout is not configured yet."
-          },
-          { status: 503 }
-        );
-      }
-
-      const params = new URLSearchParams();
-
-      params.set("mode", "payment");
-
-      params.set(
-        "line_items[0][price]",
-        env.STRIPE_PRICE_ID
-      );
-
-      params.set(
-        "line_items[0][quantity]",
-        String(quantity)
-      );
-
-      params.set(
-        "shipping_address_collection[allowed_countries][0]",
-        "US"
-      );
-
-      params.set(
-        "shipping_options[0][shipping_rate_data][type]",
-        "fixed_amount"
-      );
-
-      params.set(
-        "shipping_options[0][shipping_rate_data][display_name]",
-        "Standard Shipping"
-      );
-
-      params.set(
-        "shipping_options[0][shipping_rate_data][fixed_amount][currency]",
-        "usd"
-      );
-
-      params.set(
-        "shipping_options[0][shipping_rate_data][fixed_amount][amount]",
-        String(SHIPPING_RATES[quantity])
-      );
-
-      params.set("customer_creation", "always");
-
-      params.set(
-        "success_url",
-        `${url.origin}/?checkout=success#shop`
-      );
-
-      params.set(
-        "cancel_url",
-        `${url.origin}/#shop`
-      );
-
-      const response = await fetch(
-        "https://api.stripe.com/v1/checkout/sessions",
-        {
-          method: "POST",
-          headers: {
-            Authorization:
-              `Bearer ${env.STRIPE_SECRET_KEY}`,
-            "Content-Type":
-              "application/x-www-form-urlencoded"
-          },
-          body: params
-        }
-      );
-
-      const session = await response.json();
-
-      if (!response.ok || !session.url) {
-        console.error(
-          "Stripe checkout error",
-          session.error
-        );
-
-        return Response.json(
-          { error: "Unable to start checkout." },
-          { status: 502 }
-        );
-      }
-
-      return Response.json(
-        { url: session.url },
-        {
-          headers: {
-            "Cache-Control": "no-store"
-          }
-        }
-      );
+      return new Response("Not found", { status: 404 });
     }
 
     // Serve the existing Borderless website

@@ -1,5 +1,6 @@
 
 import { getShippingRates } from "./shipping.js";
+import { quantityFromSession, parcelCount } from "./quantity.js";
 
 
 export async function fingerprintShippingAddress(address) {
@@ -39,7 +40,7 @@ export async function fingerprintShippingAddress(address) {
  * Calculates postage through Shippo,
  * then updates a Stripe Checkout Session.
  *
- * Development only. One-can orders.
+ * Test environment only. Quantity is read from Stripe and never trusted from the browser.
  */
 
 export async function updateCheckoutShipping({
@@ -48,7 +49,7 @@ export async function updateCheckoutShipping({
   shippingDetails
 }) {
   if (
-    !env.STRIPE_SECRET_KEY?.startsWith("sk_test_") ||
+    !/^sk_test_/.test(env.STRIPE_SECRET_KEY || "") ||
     !env.SHIPPO_API_TOKEN?.startsWith("shippo_test_")
   ) {
     throw new Error("TEST_MODE_REQUIRED");
@@ -83,12 +84,13 @@ export async function updateCheckoutShipping({
     session.ui_mode !== "form" ||
     session.livemode !== false ||
     session.currency !== "usd" ||
-    session.amount_subtotal !== 4500 ||
     session.metadata?.checkout_flow !==
       "borderless_shippo_preview"
   ) {
     throw new Error("SESSION_NOT_ELIGIBLE");
   }
+  const quantity = quantityFromSession(session);
+  if (!quantity) throw new Error("INVALID_SESSION_QUANTITY");
 
   // Convert Stripe's address format to Shippo's.
   const address = shippingDetails?.address;
@@ -116,12 +118,12 @@ export async function updateCheckoutShipping({
     throw new Error("SENDER_NOT_CONFIGURED");
   }
 
-  // Request a shipping quote for one can.
+  // Quote the confirmed packing plan. One or two cans fit in one box.
   const quote = await getShippingRates({
     token: env.SHIPPO_API_TOKEN,
     shipFrom,
     shipTo,
-    quantity: 1
+    quantity
   });
 
   const shippingAmount = quote.cheapest.amount;
@@ -129,7 +131,7 @@ export async function updateCheckoutShipping({
   if (
     !Number.isInteger(shippingAmount) ||
     shippingAmount <= 0 ||
-    shippingAmount > 10000
+    shippingAmount > 10000 * parcelCount(quantity)
   ) {
     throw new Error("INVALID_SHIPPING_RATE");
   }
@@ -151,6 +153,9 @@ params.set(
   "metadata[shipping_quote_rate_id]",
   String(quote.cheapest.id)
 );
+params.set("metadata[shipping_quote_quantity]", String(quantity));
+params.set("metadata[shipping_quote_parcels]", String(parcelCount(quantity)));
+params.set("metadata[shipping_quote_strategy]", quote.strategy);
 
   params.set(
     "shipping_options[0][shipping_rate_data][type]",
