@@ -1,3 +1,4 @@
+import { handleGoogleVisions } from "./google-visions.js";
 
 const SHIPPING_RATES = {
   1: 895,
@@ -61,6 +62,11 @@ async function verifyStripeSignature(body, header, secret) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // Public Google Sheets visions (always Pending on submission).
+    if (url.pathname === "/api/visions") {
+      return handleGoogleVisions(request);
+    }
+
 
     
     // Test the connection to Shippo

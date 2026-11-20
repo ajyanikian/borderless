@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Borderless — Share your vision</title>
+<style>
+:root{--blue:#2635ff;--ease:cubic-bezier(.25,.82,.25,1)}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:white}
+body{font-family:Inter,"Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--blue);-webkit-font-smoothing:antialiased}
+button,textarea{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:4px}
+main{min-height:0;display:flex;align-items:center;justify-content:center;padding:0}
+.feature{width:100%;max-width:none;overflow:hidden;padding:0 0 5px}
+.rule{height:1px;background:#e7e7e6;margin:0 clamp(24px,5.6vw,88px)}
+h1{font-weight:200;font-size:clamp(28px,4.2vw,51px);letter-spacing:-.055em;line-height:1.17;text-align:center;margin:37px 20px 12px;color:var(--blue)}
+h1 strong{font-weight:735;letter-spacing:-.065em}
+.stage{height:151px;width:100%;position:relative;overflow:hidden;isolation:isolate;touch-action:pan-y}
+.rail{position:absolute;left:0;top:50%;display:flex;align-items:center;gap:34px;width:max-content;height:150px;transform:translate3d(0,-50%,0);will-change:transform}
+.note,.composer{flex:0 0 auto;position:relative;height:150px;display:flex;align-items:center;justify-content:center}
+.note .tape-piece{filter:drop-shadow(0 5px 3px rgba(12,31,68,.19));transition:filter .25s ease,transform .4s var(--ease);transform:rotate(var(--rotation)) translateY(var(--shift))}
+.note .tape-piece:hover,.note .tape-piece:focus-visible{filter:drop-shadow(0 8px 6px rgba(12,31,68,.22));transform:rotate(0deg) translateY(-3px)}
+.tape-piece canvas{display:block;max-width:none}
+.composer{width:416px;z-index:2}
+.shell{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:236px;height:78px;border:1.5px dotted var(--blue);border-radius:34px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;opacity:1;transition:width .7s var(--ease),height .7s var(--ease),border-radius .7s var(--ease),border-color .34s ease,opacity .35s ease,transform .7s var(--ease)}
+.prompt{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:0;color:var(--blue);display:flex;align-items:center;justify-content:center;gap:9px;font-size:12px;letter-spacing:-.01em;font-weight:650;white-space:nowrap;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .3s var(--ease)}
+.prompt:hover{background:#fdfdff}
+.prompt svg{width:14px;height:14px}
+.entry{width:100%;height:100%;display:flex;align-items:center;gap:12px;padding:8px 11px 8px 24px;opacity:0;transform:translateY(5px);pointer-events:none;transition:opacity .26s ease,transform .42s var(--ease)}
+.entry textarea{width:100%;flex:1;min-width:0;height:60px;padding:15px 0 5px;resize:none;border:0;outline:0;background:transparent;font-size:14px;line-height:1.42;letter-spacing:-.01em;color:#303b59}
+.entry textarea::placeholder{color:#99a4ad;opacity:1}
+.send{flex:0 0 43px;width:43px;height:43px;border-radius:50%;background:var(--blue);border:0;color:#fff;display:grid;place-items:center;transition:opacity .25s ease,background .2s ease,transform .2s ease}
+.send:disabled{background:#c9cbff;cursor:default}
+.send:not(:disabled):hover{transform:scale(1.05);background:#1726de}
+.send svg{height:19px;width:19px}
+.composer[data-state="writing"] .shell{width:min(414px,100%);height:90px;border-radius:33px}
+.composer[data-state="writing"] .prompt{opacity:0;transform:translateY(-5px);pointer-events:none}
+.composer[data-state="writing"] .entry{opacity:1;transform:translateY(0);pointer-events:auto;transition-delay:.15s}
+.composer[data-state="writing"] .shell:focus-within{border-style:solid}
+.formed{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.985);opacity:0;pointer-events:none;transition:opacity .55s ease,transform .8s var(--ease)}
+.formed .tape-piece{filter:drop-shadow(0 5px 3px rgba(12,31,68,.2))}
+.composer[data-state="taping"] .shell,.composer[data-state="settled"] .shell{width:var(--final-width,290px);height:var(--final-height,104px);border-radius:4px;border-color:transparent;opacity:0;pointer-events:none}
+.composer[data-state="taping"] .prompt,.composer[data-state="taping"] .entry,.composer[data-state="settled"] .prompt,.composer[data-state="settled"] .entry{opacity:0;pointer-events:none;transition-delay:0s}
+.composer[data-state="taping"] .formed,.composer[data-state="settled"] .formed{opacity:1;transform:translate(-50%,-50%) scale(1);transition-delay:.09s}
+.composer[data-state="settled"] .formed{pointer-events:auto}
+.composer.is-appearing .shell{opacity:0;transform:translate(-50%,-50%) scale(.94)}
+.composer.is-appearing[data-state="writing"] .shell{opacity:1;transform:translate(-50%,-50%) scale(1);transition-delay:.17s}
+.after{display:flex;align-items:center;justify-content:center;min-height:50px;margin-top:0}
+.again{border:1.5px dotted var(--blue);border-radius:99px;background:#fff;color:var(--blue);padding:10px 17px;font-weight:600;font-size:11px;letter-spacing:-.015em;opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .42s ease,transform .6s var(--ease)}
+.again.visible{opacity:1;transform:translateY(0);pointer-events:auto}
+.again:hover{border-style:solid}
+.error-msg{font-size:12px;color:#bd2b40;text-align:center;margin:0 18px 8px}.error-msg[hidden]{display:none}.sr-only{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+@media(max-width:700px){main{padding:0}.rule{margin:0 22px}h1{font-size:clamp(27px,6.2vw,39px);margin:30px 13px 12px}.stage{height:150px}.rail{height:148px;gap:24px}.note,.composer{height:148px}.composer{width:min(354px,89vw)}.shell{width:212px;height:70px;border-radius:29px}.composer[data-state="writing"] .shell{height:81px;border-radius:28px}.entry{padding:6px 9px 6px 18px}.entry textarea{font-size:13px}.send{width:39px;height:39px;flex-basis:39px}.after{min-height:45px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main>
+<section class="feature" aria-labelledby="question">
+ <div class="rule"></div>
+ <h1 id="question">What does <strong>borderless</strong> mean to you?</h1>
+ <div class="stage" id="stage" aria-label="A single row of handwritten visions on blue paper tape">
+   <div class="rail" id="rail"></div>
+ </div>
+ <p id="error-msg" class="error-msg" role="alert" hidden></p>
+ <div class="after"><button class="again" id="again" type="button">Share another vision ↗</button></div>
+ <p id="announce" class="sr-only" aria-live="polite"></p>
+</section>
+</main>
+<script>
+(()=>{'use strict';
+const TAPE_TEXTURE='data:image/webp;base64,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';
+const reference=new Image();reference.src=TAPE_TEXTURE;
+const $=id=>document.getElementById(id);
+const seed=str=>{let h=2166136261;for(let i=0;i<str.length;i++)h=Math.imul(h^str.charCodeAt(i),16777619);return h>>>0};
+function randGen(num){let s=num||12345678;return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296}}
+// Every letter is a drawn pen stroke. No handwriting font is used.
+const glyphs={
+ a:[12,'M10 8 Q8 6 5 7 Q1 7 1.5 11 Q2 15 6 14.5 Q9 14 10 10 M10 7 Q10 12 11 15'],
+ b:[12,'M2 0 Q2.5 6 2 15 M2 10 Q5 6 8 7.5 Q11 9 10 12 Q9 15 5 14.8 Q3 14.5 2 13'],
+ c:[11,'M9 8 Q6 5.6 3 8 Q0 10 2 13 Q4 16 9 13.6'],
+ d:[12,'M10 0 Q9 7 10 15 M10 9 Q7 6 4 8 Q1 9 2 13 Q4 16 7 14 Q9 13 10 10'],
+ e:[11,'M2 11 Q6 11 9 9 Q9 7 6 7 Q1 7 1.5 11 Q2 15.5 9 14'],
+ f:[8,'M7 1 Q4 -1 3 3 Q2.5 6 3 15 M0.5 8 L7.5 7.5'],
+ g:[12,'M10 8 Q7 6 4 7.7 Q1 9 2 12.6 Q4 15 8 12.5 L10 8 Q10.5 14 9 18 Q7 22 2 20'],
+ h:[12,'M2 0 Q2 7 2 15 M2 10 Q5 7 7 7 Q10 7 10 11 L10.5 15'],
+ i:[5,'M2.5 7.5 Q2 12 2.8 15 M2.2 2 L2.7 2.3'],
+ j:[6,'M4 7.5 L4 17 Q4 21 0 21 M4 2 L4.3 2.2'],
+ k:[11,'M2 0 L2 15 M9 7 Q5 11 2 12 M5 11 Q7 13 10 15'],
+ l:[5,'M2 0 Q1.5 9 2 13 Q2 15 4 15'],
+ m:[18,'M2 8 L2 15 M2 10 Q5 7 7 8 Q9 9 9 15 M9 10 Q12 7 14 8 Q17 9 16 15'],
+ n:[12,'M2 8 Q2 11 2 15 M2 10 Q5 6.5 8 7.8 Q10 9 10 15'],
+ o:[12,'M6 7 Q1.4 7 1.5 11 Q1.6 15 6 15 Q10.5 14.5 10 11 Q10 7 6 7'],
+ p:[12,'M2 8 L2 20 M2 10 Q5 7 8 8 Q11 9 10 12 Q8 16 2 13'],
+ q:[12,'M10 8 Q7 6 4 7.7 Q1 9 2 12.5 Q4 15 7 13 Q9 12 10 9 M10 8 L10 21'],
+ r:[9,'M2 8 L2 15 M2 11 Q4 6.8 8 8'],
+ s:[10,'M8 8 Q4.5 6 2.5 8.5 Q0 11 6.2 11.5 Q10 12.5 7 14.5 Q4 16 1.5 14'],
+ t:[9,'M4 2 Q3.5 9 4 13 Q4 16 7.5 14 M.5 8 L8.5 7.5'],
+ u:[12,'M2 8 Q1.5 12 3 14 Q6 16 9 11 M10 8 Q9 12 10.5 15'],
+ v:[12,'M1 8 Q3 14 5.5 15 Q8 12 10 8'],
+ w:[18,'M1 8 Q2 14 5 15 L9 10 Q10 14 12 15 Q15 11 17 8'],
+ x:[11,'M2 8 L9 15 M9 7 L1.5 15'],
+ y:[12,'M1 8 Q3 14 5.5 14 Q8 13 10 8 M10 8 Q8 18 2 21'],
+ z:[11,'M2 8 Q5 7.5 9 8 L2 15 Q6 14.5 10 15'],
+ A:[14,'M1 16 Q5 6 8 0 Q11 9 13 16 M4 11 Q8 10.5 11 11'],
+ B:[13,'M2 1 Q2 9 2 16 M2 1 Q11 -1 11 4 Q11 8 3 8 M3 8 Q13 7 12 12 Q11 17 2 16'],
+ C:[13,'M12 3 Q7 -1 3 4 Q0 7 2 13 Q5 18 12 14'],
+ D:[14,'M2 1 Q2 8 2 16 M2 1 Q13 0 13 8 Q13 15 2 16'],
+ E:[12,'M11 1 L2 1 L2 16 L11 16 M2 8 Q5 8 9 8'],
+ F:[12,'M2 16 L2 1 L11 1 M2 8 L9 8'],
+ G:[14,'M12 3 Q6 -1 3 4 Q0 8 3 13 Q6 18 12 14 L12 9 L8 9'],
+ H:[14,'M2 1 L2 16 M12 1 L12 16 M2 9 L12 8'],
+ I:[7,'M3 1 L3 16 M1 1 L6 1 M1 16 L6 16'],
+ J:[11,'M9 1 L9 12 Q9 17 4 16 Q1 15 1 12'],
+ K:[13,'M2 1 L2 16 M12 1 Q7 6 2 9 M6 7 L12 16'],
+ L:[12,'M2 1 L2 16 L11 16'],
+ M:[17,'M2 16 L2 1 L9 11 L15 1 L15 16'],
+ N:[15,'M2 16 L2 1 L13 16 L13 1'],
+ O:[15,'M8 1 Q2 1 2 8 Q2 16 8 16 Q14 16 14 8 Q14 1 8 1'],
+ P:[13,'M2 16 L2 1 Q12 -1 12 5 Q12 11 2 9'],
+ Q:[15,'M8 1 Q2 1 2 8 Q2 16 8 16 Q14 16 14 8 Q14 1 8 1 M9 12 L15 18'],
+ R:[14,'M2 16 L2 1 Q12 -1 12 5 Q12 10 2 9 M7 9 L13 16'],
+ S:[13,'M11 3 Q7 -1 3 3 Q0 7 8 9 Q15 13 10 15 Q6 18 1 14'],
+ T:[13,'M1 1 L12 1 M7 1 L6 16'],
+ U:[14,'M2 1 L2 11 Q2 16 7 16 Q12 16 12 11 L12 1'],
+ V:[14,'M1 1 L7 16 L13 1'],
+ W:[19,'M1 1 L4 16 L10 6 L14 16 L18 1'],
+ X:[14,'M2 1 L12 16 M12 1 L2 16'],
+ Y:[14,'M1 1 L7 9 L13 1 M7 9 L7 16'],
+ Z:[14,'M2 1 L12 1 L2 16 L12 16'],
+ '0':[11,'M6 2 Q2 2 2 8 Q2 16 6 16 Q10 16 10 8 Q10 2 6 2'],
+ '1':[7,'M1 5 L4 2 L4 16'],
+ '2':[11,'M2 5 Q3 1 7 2 Q12 3 9 8 Q6 12 2 16 L10 16'],
+ '3':[11,'M2 3 Q9 0 9 5 Q9 8 5 9 Q10 9 10 13 Q9 18 2 15'],
+ '4':[12,'M8 2 L2 11 L11 11 M8 2 L8 16'],
+ '5':[11,'M10 2 L3 2 L2 9 Q9 7 10 12 Q10 17 2 15'],
+ '6':[11,'M9 3 Q3 1 2 10 Q1 15 6 16 Q11 16 9 11 Q7 7 2 11'],
+ '7':[11,'M2 2 L10 2 L4 16'],
+ '8':[11,'M6 2 Q1 2 2 6 Q3 9 7 9 Q11 10 10 13 Q9 17 5 16 Q1 15 2 12 Q3 9 7 9 Q10 6 9 4 Q8 2 6 2'],
+ '9':[11,'M9 9 Q5 12 2 8 Q0 3 5 2 Q11 2 9 9 Q9 15 3 16'],
+ '.':[5,'M2 14.5 L2.3 15.2'],
+ ',':[5,'M3 14 L1.7 18'],
+ '!':[6,'M3 1 L3 11 M3 14.5 L3.1 15'],
+ '?':[11,'M2 4 Q3 0 7 2 Q11 4 8 8 L6 10.5 M6 14.6 L6 15'],
+ '\'':[5,'M3 1 L2 5'],
+ '’':[5,'M3 1 L2 5'],
+ '-':[8,'M1 10 L7 10'],
+ ':':[5,'M2 7 L2.2 7.2 M2 14 L2.2 14.2'],
+ ';':[5,'M2 7 L2.2 7.2 M3 13 L1 17'],
+ '/':[10,'M9 1 L1 17'],
+ '&':[14,'M12 15 Q5 17 2 13 Q0 10 4 8 Q9 5 7 2 Q5 -1 3 3 Q2 6 12 16'],
+ '(':[7,'M6 0 Q0 8 6 18'],
+ ')':[7,'M1 0 Q7 8 1 18']
+};
+const pathCache=new Map();
+function strokeGlyph(ctx,ch,x,y,s,rand){
+ const g=glyphs[ch];
+ if(!g){ctx.save();ctx.font=`italic ${Math.round(14*s)}px cursive`;ctx.fillText(ch,x,y+13*s);ctx.restore();return 11*s;}
+ const [w,d]=g;if(!pathCache.has(ch))pathCache.set(ch,new Path2D(d));
+ ctx.save();ctx.translate(x+(rand()-.5)*.8*s,y+(rand()-.5)*2*s);ctx.rotate((rand()-.5)*.10);ctx.transform(1,(rand()-.5)*.05,(rand()-.5)*.17,1,0,0);ctx.scale(s*(.97+rand()*.08),s*(.95+rand()*.11));
+ const p=pathCache.get(ch);ctx.lineCap='round';ctx.lineJoin='round';
+ ctx.lineWidth=1.62+(rand()-.5)*.56;ctx.strokeStyle='rgba(11,27,45,.17)';ctx.save();ctx.translate(.24,.27);ctx.stroke(p);ctx.restore();
+ ctx.lineWidth=1.18+(rand()-.5)*.58;ctx.strokeStyle='rgba(13,27,43,.91)';ctx.stroke(p);
+ ctx.restore();return w*s;
+}
+function measure(str,s){let sum=0;for(const ch of str)sum+=(ch===' '?6:(glyphs[ch]?.[0]||11)+.45)*s;return sum;}
+function wrapText(text,maxW,s){const words=text.split(/\s+/);const lines=[];let line='';for(let word of words){let candidate=line?line+' '+word:word;
+ if(measure(candidate,s)<=maxW){line=candidate;continue;}
+ if(line){lines.push(line);line='';}
+ if(measure(word,s)<=maxW){line=word;continue;}
+ let piece='';for(const ch of word){if(piece&&measure(piece+ch,s)>maxW){lines.push(piece);piece='';}piece+=ch;}line=piece;
+}if(line)lines.push(line);return lines;}
+function makeTape(text,i=0){
+ const r=randGen(seed(text)+i*197);const width=Math.round(Math.min(388,Math.max(238,226+text.length*1.49+(r()-.5)*13)));
+ const height=Math.round(Math.min(124,80+Math.max(0,text.length-36)*.54));
+ const canvas=document.createElement('canvas');let dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+ canvas.style.width=width+'px';canvas.style.height=height+'px';canvas.setAttribute('aria-hidden','true');
+ const c=canvas.getContext('2d');c.scale(dpr,dpr);
+ const left=8,right=width-8,top=4,bottom=height-4;
+ c.save();c.beginPath();c.moveTo(left,top);
+ // Top and bottom intact, almost ruler-straight.
+ c.lineTo(right,top+(r()-.5)*.7);
+ // RIGHT ONLY: small fibrous tears where tape was pulled from roll.
+ let y=top;while(y<bottom){y=Math.min(bottom,y+2+r()*5);c.lineTo(width-5-r()*9,y)}
+ c.lineTo(left,bottom);
+ // LEFT ONLY: independent jagged torn edge.
+ y=bottom;while(y>top){y=Math.max(top,y-(2+r()*5));c.lineTo(5+r()*9,y)}c.closePath();c.clip();
+ c.fillStyle='#1c73d0';c.fillRect(0,0,width,height);
+ if(reference.complete && reference.naturalWidth){
+  c.save();c.globalAlpha=1;
+  const sx=Math.floor(r()*34);
+  c.drawImage(reference,sx,0,reference.width-sx,reference.height,0,0,width,height);
+  c.restore();
+ }
+ // Semi-transparent adhesive depth, tiny fibers and inconsistent paper saturation.
+ const g=c.createLinearGradient(0,0,width,height);g.addColorStop(0,'rgba(5,50,125,.12)');g.addColorStop(.18,'rgba(165,220,255,.06)');g.addColorStop(.52,'rgba(20,95,195,.07)');g.addColorStop(1,'rgba(0,41,106,.13)');c.fillStyle=g;c.fillRect(0,0,width,height);
+ for(let n=0;n<1200;n++){const x=r()*width,y=r()*height,alpha=.015+r()*.07;c.fillStyle=r()>.55?`rgba(244,250,255,${alpha})`:`rgba(4,45,112,${alpha})`;c.fillRect(x,y,.3+r()*1.3,.2+r()*.95)}
+ for(let n=0;n<10;n++){let px=20+r()*(width-40);c.beginPath();c.moveTo(px,5);c.bezierCurveTo(px+3+r()*4,height*.3,px-4-r()*4,height*.7,px+(r()-.5)*10,height-5);c.strokeStyle='rgba(255,255,255,.018)';c.lineWidth=1+r()*2;c.stroke();}
+ // Loose paper fibers on ripped vertical ends.
+ for(let side of [0,1])for(let n=0;n<32;n++){const yy=5+r()*(height-10),xx=side?width-6-r()*8:6+r()*8;c.beginPath();c.moveTo(xx,yy);c.lineTo(xx+(side?1:-1)*(1+r()*4),yy+(r()-.5)*2);c.strokeStyle=`rgba(182,225,255,${.1+r()*.26})`;c.lineWidth=.3+r()*.45;c.stroke()}
+ c.restore();
+ // Pen strokes are drawn one at a time and slightly different every time.
+ const padX=23;const allowed=width-padX*2;
+ let scale=1.35,lines=[];
+ while(scale>=.76){lines=wrapText(text,allowed,scale);if(lines.length*22*scale<height-13 && lines.length<=5)break;scale-=.055;}
+ scale=Math.max(.76,scale);
+ const lineHeight=21.5*scale;const totalH=lines.length*lineHeight;
+ let startY=(height-totalH)/2+1;
+ c.save();c.beginPath();c.rect(16,6,width-32,height-12);c.clip();
+ lines.forEach((line,li)=>{
+  const naturalWidth=measure(line,scale);let x=padX+Math.max(0,(allowed-naturalWidth)/2)*(.6+r()*.4),y=startY+li*lineHeight;
+  for(const ch of line){if(ch===' '){x+=6*scale;continue;}x+=strokeGlyph(c,ch,x,y,scale,r)+.45*scale;}
+ });c.restore();
+ const el=document.createElement('div');el.className='tape-piece';el.style.width=width+'px';el.style.height=height+'px';el.style.setProperty('--rotation',((r()-.5)*1.8).toFixed(2)+'deg');el.style.setProperty('--shift',((r()-.5)*3).toFixed(1)+'px');el.appendChild(canvas);el.title=text;el.setAttribute('aria-label',text);el.tabIndex=0;
+ return el;
+}
+
+
+
+
+// Only real, administrator-approved visions appear publicly.
+const approved=[];
+const stage=$('stage'),rail=$('rail'),again=$('again'),announce=$('announce');
+const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const storageKey='borderless_google_visions_v1';
+let mine=[],composer=null,mode='idle',busy=false,position=0,lastFrame=0,speed=0,hovered=false;
+try{const data=JSON.parse(localStorage.getItem(storageKey)||'[]');if(Array.isArray(data))mine=data.filter(x=>x&&typeof x.text==='string').slice(-20)}catch(e){}
+function save(){try{localStorage.setItem(storageKey,JSON.stringify(mine))}catch(e){}}
+function showError(message){const el=$('error-msg');el.textContent=message;el.hidden=!message;}
+async function loadApproved(){
+ try{
+  const res=await fetch('/api/visions',{cache:'no-store'});
+  if(!res.ok)throw new Error('Unable to load community visions');
+  const data=await res.json();
+  if(!Array.isArray(data.visions))throw new Error('Unexpected community visions response');
+  approved.push(...data.visions
+    .filter(x=>x && typeof x.vision==='string' && x.vision.trim())
+    .map(x=>({id:String(x.id||''),text:x.vision.trim(),status:'approved'})));
+  const publicIds=new Set(approved.map(x=>x.id).filter(Boolean));
+  mine=mine.filter(x=>!publicIds.has(x.id));save();
+ }catch(err){console.warn('Community visions could not be loaded',err);}
+}
+function gap(){return Number.parseFloat(getComputedStyle(rail).gap)||34}
+function applyX(){rail.style.transform=`translate3d(${position.toFixed(3)}px,-50%,0)`}
+function centerComposer(){if(!composer)return;position=stage.clientWidth/2-(composer.offsetLeft+composer.getBoundingClientRect().width/2);applyX()}
+function makeNote(item,i){
+ const note=document.createElement('div');note.className='note';note.dataset.visionId=item.id;
+ const piece=makeTape(item.text,i);note.style.width=piece.style.width;note.appendChild(piece);
+ note.addEventListener('pointerenter',()=>hovered=true);note.addEventListener('pointerleave',()=>hovered=false);
+ return note;
+}
+function createComposer(isNew=false){
+ const node=document.createElement('div');node.className='composer';node.dataset.state='idle';
+ node.innerHTML=`<div class="shell">
+  <button type="button" class="prompt">Share my vision <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 18 18 5M8 5h10v10"/></svg></button>
+  <form class="entry" novalidate><label class="sr-only">Your vision of a borderless world</label><textarea rows="2" maxlength="120" placeholder="Write your vision…" aria-label="Write your vision of a borderless world"></textarea><button type="submit" class="send" aria-label="Submit your vision" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button></form>
+ </div><div class="formed" aria-hidden="true"></div>`;
+ const prompt=node.querySelector('.prompt'),form=node.querySelector('.entry'),entry=node.querySelector('textarea'),send=node.querySelector('.send');
+ form.inert=true;
+ prompt.addEventListener('click',()=>openEditor(node));
+ entry.addEventListener('input',()=>{send.disabled=entry.value.trim().length<3});
+ entry.addEventListener('keydown',event=>{
+  if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();form.requestSubmit()}
+  if(event.key==='Escape'&&!entry.value.trim()&&mode==='writing'){event.preventDefault();closeEditor(node)}
+ });
+ form.addEventListener('submit',event=>{event.preventDefault();submit(node,entry,send)});
+ return node;
+}
+function openEditor(node){
+ if(busy||mode==='taping'||mode==='flowing')return;
+ node.dataset.state='writing';mode='writing';node.querySelector('.entry').inert=false;
+ node.querySelector('.prompt').disabled=true;
+ const input=node.querySelector('textarea');setTimeout(()=>{if(node===composer)input.focus({preventScroll:true})},reduced?5:360);
+}
+function closeEditor(node){
+ if(busy||node!==composer)return;
+ node.dataset.state='idle';mode='idle';node.querySelector('.entry').inert=true;node.querySelector('.prompt').disabled=false;
+ node.querySelector('.prompt').focus({preventScroll:true});
+}
+async function submit(node,input,send){
+ if(busy||node!==composer)return;
+ const text=input.value.replace(/\s+/g,' ').trim();
+ if([...text].length<3){input.focus();return;}
+ if([...text].length>120){showError('Please keep your vision under 120 characters.');return;}
+ busy=true;send.disabled=true;showError('');
+ let item;
+ try{
+  const response=await fetch('/api/visions',{
+   method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
+   body:JSON.stringify({vision:text,website:''})
+  });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||!result.ok||!result.id)throw new Error(result.error||'Unable to save. Please try again.');
+  item={id:String(result.id),text,status:'pending'};
+ }catch(err){
+  busy=false;send.disabled=false;showError(err.message||'Unable to save. Please try again.');
+  input.focus();return;
+ }
+ mode='taping';input.blur();
+ mine.push(item);mine=mine.slice(-20);save();
+ const piece=makeTape(text,seed(item.id)%70);
+ const reveal=node.querySelector('.formed');reveal.replaceChildren(piece);
+ node.style.setProperty('--final-width',piece.style.width);node.style.setProperty('--final-height',piece.style.height);
+ node.querySelector('.entry').inert=true;
+ const previousWidth=node.getBoundingClientRect().width;
+ const targetWidth=parseFloat(piece.style.width);
+ node.dataset.state='taping';
+ const morphMs=reduced?60:910;
+ setTimeout(()=>{
+  if(node!==composer)return;
+  const duration=reduced?0:700;
+  rail.style.transition=`transform ${duration}ms var(--ease)`;
+  node.style.transition=`width ${duration}ms var(--ease)`;
+  const difference=previousWidth-targetWidth;
+  node.style.width=targetWidth+'px';
+  position+=difference/2;applyX();
+  setTimeout(()=>{
+   rail.style.transition='none';node.style.transition='none';node.dataset.state='settled';
+   node.classList.add('note');composer=null;mode='flowing';busy=false;speed=0;lastFrame=0;fillFlow();
+   again.classList.add('visible');
+   announce.textContent='Your vision has been received for review. You can share another.';
+  },duration+30);
+ },morphMs);
+}
+function addAnother(){
+ if(busy||mode!=='flowing')return;
+ busy=true;mode='opening';speed=0;again.classList.remove('visible');hovered=false;
+ const stageRect=stage.getBoundingClientRect(),center=stageRect.left+stageRect.width/2;
+ // Insert the composer at the nearest seam in the drifting row.
+ let pivot=null,min=Infinity;
+ for(const child of rail.children){const r=child.getBoundingClientRect();const d=Math.abs(r.left-center);if(d<min){min=d;pivot=child}}
+ const node=createComposer(true);node.style.width='0px';node.classList.add('is-appearing');
+ if(pivot)rail.insertBefore(node,pivot);else rail.appendChild(node);
+ composer=node;
+ // Measure in layout coordinates so the seam comes to rest exactly in the middle.
+ const desiredWidth=Math.min(416,Math.max(315,stage.clientWidth*.89));
+ const target=stage.clientWidth/2-(node.offsetLeft+desiredWidth/2);
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  rail.style.transition=reduced?'none':'transform 850ms var(--ease)';
+  node.style.transition=reduced?'none':'width 850ms var(--ease)';
+  node.style.width=desiredWidth+'px';
+  position=target;applyX();
+  node.dataset.state='writing';node.querySelector('.entry').inert=false;
+  setTimeout(()=>{
+   node.classList.remove('is-appearing');rail.style.transition='none';node.style.transition='none';
+   mode='writing';busy=false;node.querySelector('textarea').focus({preventScroll:true});
+  },reduced?50:880);
+ }));
+}
+
+// Maintain enough paper tape beyond BOTH viewport edges so there are no
+// abrupt entrances or empty gaps, even with just one approved submission.
+function fillFlow(){
+ if(mode!=='flowing')return;
+ const sources=[...approved,...mine].filter(x=>x && x.text);
+ if(!sources.length)return;
+ const space=gap();
+ const makeFlowCopy=(item,i)=>{
+  const note=makeNote(item,90+i);
+  note.setAttribute('aria-hidden','true');
+  const piece=note.querySelector('.tape-piece');
+  if(piece)piece.tabIndex=-1;
+  return note;
+ };
+ let count=0;
+ while(rail.firstElementChild && rail.firstElementChild.getBoundingClientRect().left > -stage.clientWidth && count<40){
+  const item=sources[(sources.length-1-count%sources.length+sources.length)%sources.length];
+  const node=makeFlowCopy(item,count);
+  rail.insertBefore(node,rail.firstElementChild);
+  position-=node.offsetWidth+space;
+  applyX();
+  count++;
+ }
+ count=0;
+ while(rail.lastElementChild && rail.lastElementChild.getBoundingClientRect().right < stage.clientWidth*2 && count<60){
+  const item=sources[count%sources.length];
+  rail.appendChild(makeFlowCopy(item,100+count));
+  count++;
+ }
+}
+
+function recycle(){
+ if(mode!=='flowing')return;
+ let count=0;
+ while(count++<rail.childElementCount){
+  const first=rail.firstElementChild;if(!first)break;
+  const bounds=first.getBoundingClientRect();
+  if(bounds.right>-60)break;
+  position+=bounds.width+gap();rail.appendChild(first);applyX();
+ }
+}
+function animate(now){
+ if(!lastFrame)lastFrame=now;
+ const dt=Math.min(45,now-lastFrame);lastFrame=now;
+ if(mode==='flowing'&&!reduced&&!hovered){speed=Math.min(29,speed+dt*.024);position-=speed*dt/1000;applyX();recycle()}
+ requestAnimationFrame(animate);
+}
+function init(){
+ // All paper textures MUST finish loading before making a single tape strip.
+ const left=[...approved.slice(0,4)];
+ const right=[...approved.slice(4)];
+ left.forEach((x,i)=>rail.appendChild(makeNote(x,i)));
+ composer=createComposer();rail.appendChild(composer);
+ mine.forEach((x,i)=>rail.appendChild(makeNote(x,20+i)));
+ right.forEach((x,i)=>rail.appendChild(makeNote(x,9+i)));
+ centerComposer();requestAnimationFrame(()=>centerComposer());
+ again.addEventListener('click',addAnother);
+ window.addEventListener('resize',()=>{if(composer&&mode!=='flowing')centerComposer();else if(mode==='flowing')fillFlow()});
+ requestAnimationFrame(animate);
+}
+// Wait for image decoding, including on cold first load, so there are no flat-color tape strips.
+Promise.allSettled([reference.decode(),loadApproved()]).then(init);
+})();
+</script>
+<script>
+// When embedded in the website, keep the iframe tightly fitted to the tape section.
+(()=>{
+ if(window.parent===window)return;
+ function measure(){
+  const height=Math.ceil(document.documentElement.scrollHeight);
+  window.parent.postMessage({type:'borderless-vision-height',height},location.origin);
+ }
+ window.addEventListener('load',measure);
+ if('ResizeObserver' in window)new ResizeObserver(measure).observe(document.body);
+ measure();
+})();
+</script>
+</body>
+</html>

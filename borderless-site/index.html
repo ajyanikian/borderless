@@ -104,6 +104,25 @@ footer a{text-decoration:underline;text-underline-offset:3px}
 .legal{grid-column:1/-1;font-size:.78rem;color:var(--muted)}
 .legal-links{display:inline-block;margin-left:.7rem}.legal-links a{margin-right:.8rem;white-space:nowrap}
 </style>
+<style>
+/* Borderless Google Sheets visions embed */
+.vision-live{padding:1rem 0 1.25rem}
+.vision-live iframe{display:block;width:100%;height:330px;border:0;background:white}
+</style>
+<style>
+/* Continuous Borderless tape: full browser width, not the main content column. */
+.vision-live{
+  width:100vw;
+  width:100dvw;
+  position:relative;
+  left:50%;
+  margin-left:-50vw;
+  margin-left:-50dvw;
+  max-width:none;
+  overflow:visible;
+}
+.vision-live iframe{width:100%;max-width:none}
+</style>
 </head>
 <body>
 <main class="wrap">
@@ -145,13 +164,9 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     </div>
   </section>
 
-  <section class="vision">
-    <h2>What does <b>borderless</b> mean to you?</h2>
-    <label for="v" style="position:absolute;left:-9999px">Your vision of a borderless world</label>
-    <textarea id="v" placeholder="Write your vision of a borderless world..."></textarea>
-    <button type="button" id="share">Share my vision</button>
-    <p class="note" id="thanks" hidden>Thank you. Your email app will open so you can send it.</p>
-  </section>
+  <section class="vision-live" id="visions" aria-label="Borderless community visions">
+  <iframe id="borderless-visions-frame" src="/visions.html" title="What does borderless mean to you? Share your vision" loading="lazy" referrerpolicy="same-origin"></iframe>
+</section>
 
   <footer id="contact">
     <a class="mark" href="#">borderless</a>
@@ -235,8 +250,6 @@ th.querySelectorAll("button").forEach((b,i)=>b.onclick=()=>show(i));
 document.querySelector(".prev").onclick=()=>show(cur-1); document.querySelector(".next").onclick=()=>show(cur+1);
 document.addEventListener("keydown",e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;if(e.key==="ArrowLeft")show(cur-1);if(e.key==="ArrowRight")show(cur+1);});
 const mail=(subject,body)=>{location.href=`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;};
-document.getElementById("share").onclick=()=>{const t=document.getElementById("v").value.trim();if(!t){document.getElementById("v").focus();return;}
-  mail("My vision of a borderless world",t);document.getElementById("thanks").hidden=false;};
 document.getElementById("sub").onsubmit=e=>{e.preventDefault();const em=document.getElementById("subEmail").value.trim();if(!em)return;
   mail("Subscribe","Please add "+em+" to the Borderless list.");document.getElementById("subThanks").hidden=false;};
 const m=document.getElementById("mail"); m.textContent=CONTACT_EMAIL; m.href="mailto:"+CONTACT_EMAIL;
@@ -244,5 +257,14 @@ document.getElementById("ig").href=INSTAGRAM;
 document.getElementById("yr").textContent=new Date().getFullYear();
 </script>
   <script src="site-conversion.js" defer></script>
+<script>
+window.addEventListener('message', function(event) {
+  var frame = document.getElementById('borderless-visions-frame');
+  if (!frame || event.origin !== location.origin || event.source !== frame.contentWindow) return;
+  if (!event.data || event.data.type !== 'borderless-vision-height') return;
+  var height = Number(event.data.height);
+  if (Number.isFinite(height) && height >= 180 && height <= 800) frame.style.height = Math.ceil(height) + 'px';
+});
+</script>
 </body>
 </html>
